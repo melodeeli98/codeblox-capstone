@@ -32,10 +32,6 @@ class EmbeddedCode (threading.Thread):
         self.time_to_exit = False
         self.ready_to_report = False
 
-    ### Begin Arduino functions ###
-
-    ### End Arduino functions ###
-
     def run(self):
         tile = self.tile
         print("booting {}".format(tile.syntax_name))
@@ -99,6 +95,14 @@ class Side:
         self.data_out = value
         if self.neighbor:
             self.neighbor.data_in = value
+
+    def readClock(self):
+        if self.is_sender:
+            raise Exception("this is a sender!")
+        return self.clk_in
+
+    def readData(self):
+        return self.data_in
 
 
 class Tile:

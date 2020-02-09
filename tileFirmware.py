@@ -1,4 +1,7 @@
 import time
+from arduino import micros
+
+CLOCK_PERIOD = 50000  # 50ms
 
 
 def leftClockCallback(state, tile):
@@ -17,4 +20,19 @@ def init(state, tile):
 
 
 def loop(state, tile):
-    time.sleep(1)
+    pass
+    # toggle clock
+
+    # if falling edge
+    #   increment location in word cycle
+    #   if data to write
+    #       toggle data pin for data
+    #   else
+    #       if at end of word cycle
+    #           toggle data off
+    #       else
+    #           toggle data on
+    # if rising edge
+    #   read data
+
+    # sleep until next clock edge
