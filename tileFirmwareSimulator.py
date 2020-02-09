@@ -1,6 +1,5 @@
-import threading
 import time
-import random
+from tileFirmware import EmbeddedCode
 
 NONE = 0
 IF = 1
@@ -23,22 +22,14 @@ syntax_map = {
 }
 
 
-class EmbeddedCode (threading.Thread):
-    def __init__(self, tile):
-        threading.Thread.__init__(self)
-        self.tile = tile
-
-    def run(self):
-        print("booting {}".format(self.tile.syntax_name))
-        time.sleep(random.uniform(0.0, 8.0))
-        print("done booting {}".format(self.tile.syntax_name))
-
-
 class Side:
-    def __init__(self, is_sender):
+    def __init__(self, is_sender, tile):
         self.is_sender = is_sender
         self.data_out = 0
         self.data_in = 0
+        self.clockCallback = lambda: None
+        self.neighbor = None
+        self.tile = tile
 
         if is_sender:
             self.clk_out = 0
@@ -57,23 +48,29 @@ class Side:
     def toggleClock(self, value):
         if self.is_sender:
             self.clk_out = value
-            self.neighbor.clk_in = value
+            if self.neighbor:
+                self.neighbor.clk_in = value
+                self.neighbor.clockCallback()
         else:
             raise Exception("Not a sender!")
 
+    def registerClockCallback(self, callback):
+        self.clockCallback = callback
+
     def toggleData(self, value):
         self.data_out = value
-        self.neighbor.data_in = value
+        if self.neighbor:
+            self.neighbor.data_in = value
 
 
 class Tile:
     def __init__(self, syntax_name, is_powered=False):
         self.syntax_name = syntax_name
         self.syntax = syntax_map[syntax_name]
-        self.top = Side(False)
-        self.right = Side(True)
-        self.bottom = Side(True)
-        self.left = Side(False)
+        self.top = Side(False, self)
+        self.right = Side(True, self)
+        self.bottom = Side(True, self)
+        self.left = Side(False, self)
         self.is_powered = is_powered
         if is_powered:
             self.boot()
@@ -107,14 +104,23 @@ class Tile:
             other.boot()
 
     def tiles(self):
-        # TODO
-        return []
+        self.thread.waitUntilDone()
+        return self.thread.getTiles()
+
+    def killThread(self):
+        self.thread.kill()
+        self.thread.join()
 
     def boot(self):
         self.is_powered = True
-        thread = EmbeddedCode(self)
-        thread.start()
+        sides = [self.top, self.right, self.bottom, self.left]
+        for side in sides:
+            if side.neighbor:
+                if not side.neighbor.tile.is_powered:
+                    side.neighbor.tile.boot()
 
+        self.thread = EmbeddedCode(self)
+        self.thread.start()
 
 """
 IF TR
@@ -122,13 +128,14 @@ IF TR
 EL OU
 """
 
-
 def main():
     if_tile = Tile("if", is_powered=True)
     true_tile = Tile("true")
     output_tile_1 = Tile("output")
     else_tile = Tile("else")
     output_tile_2 = Tile("output")
+
+    tiles_list = [if_tile, true_tile, output_tile_1, else_tile, output_tile_2]
 
     if_tile.connectRight(true_tile)
     true_tile.connectBottom(output_tile_1)
@@ -152,6 +159,10 @@ def main():
                 print(expected_tiles)
                 print("actual: ")
                 print(actual_tiles)
+
+                for tile in tiles_list:
+                    tile.killThread()
+                
                 return
 
 
