@@ -1,5 +1,8 @@
 import time
-from tileFirmware import EmbeddedCode
+import threading
+import time
+import random
+import tileFirmware
 
 NONE = 0
 IF = 1
@@ -20,6 +23,41 @@ syntax_map = {
     "input": 6,
     "output": 7
 }
+
+
+class EmbeddedCode (threading.Thread):
+    def __init__(self, tile):
+        threading.Thread.__init__(self)
+        self.tile = tile
+        self.time_to_exit = False
+        self.ready_to_report = False
+
+    ### Begin Arduino functions ###
+
+    ### End Arduino functions ###
+
+    def run(self):
+        tile = self.tile
+        print("booting {}".format(tile.syntax_name))
+        tile.top.toggleData(1)
+        tile.right.toggleData(1)
+        tile.bottom.toggleData(1)
+        tile.left.toggleData(1)
+        time.sleep(random.uniform(0.0, 5.0))
+        print("done booting {}".format(tile.syntax_name))
+        tileFirmware.init(self, tile)
+        while not self.time_to_exit:
+            tileFirmware.loop(self, tile)
+
+    def kill(self):
+        self.time_to_exit = True
+
+    def waitUntilDone(self):
+        while not self.ready_to_report:
+            time.sleep(0.0001)
+
+    def getTiles(self):
+        return self.tiles
 
 
 class Side:
@@ -122,11 +160,13 @@ class Tile:
         self.thread = EmbeddedCode(self)
         self.thread.start()
 
+
 """
 IF TR
    OU
 EL OU
 """
+
 
 def main():
     if_tile = Tile("if", is_powered=True)
@@ -162,7 +202,7 @@ def main():
 
                 for tile in tiles_list:
                     tile.killThread()
-                
+
                 return
 
 
