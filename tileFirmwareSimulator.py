@@ -79,11 +79,11 @@ class Side:
         if self.is_sender:
             other.clk_in = self.clk_out
 
-    def toggleClock(self, value):
+    def toggleClock(self):
         if self.is_sender:
-            self.clk_out = value
+            self.clk_out = not self.readClock
             if self.neighbor:
-                self.neighbor.clk_in = value
+                self.neighbor.clk_in = self.clk_out
                 self.neighbor.clockCallback()
         else:
             raise Exception("Not a sender!")
@@ -97,8 +97,6 @@ class Side:
             self.neighbor.data_in = value
 
     def readClock(self):
-        if self.is_sender:
-            raise Exception("this is a sender!")
         return self.clk_in
 
     def readData(self):
