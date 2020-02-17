@@ -3,6 +3,8 @@ import threading
 import time
 import random
 import tileFirmware
+from tileFirmware import CLOCK_PERIOD
+from arduino import micros, delayMicros
 
 NONE = 0
 IF = 1
@@ -81,7 +83,7 @@ class Side:
 
     def toggleClock(self):
         if self.is_sender:
-            self.clk_out = not self.readClock
+            self.clk_out = not self.readClock()
             if self.neighbor:
                 self.neighbor.clk_in = self.clk_out
                 self.neighbor.clockCallback()
@@ -97,7 +99,10 @@ class Side:
             self.neighbor.data_in = value
 
     def readClock(self):
-        return self.clk_in
+        if self.is_sender:
+            return self.clk_out
+        else:
+            return self.clk_in
 
     def readData(self):
         return self.data_in
@@ -163,6 +168,54 @@ class Tile:
         self.thread.start()
 
 
+def testSelfDrivenClockCycles():
+    print("Testing self-driven clock cycles...")
+    true_tile = Tile("true", is_powered=True)
+    right_clock_high = 0
+    cycle_begin = 0
+    cycle_end = 0
+    for i in range(5):
+        while(not right_clock_high):
+            right_clock_high = true_tile.right.readClock()
+            if (right_clock_high):
+                cycle_begin = micros()
+        while(right_clock_high):
+            right_clock_high = true_tile.right.readClock()
+            if (not right_clock_high):
+                cycle_end = micros()
+        if(abs(cycle_end - cycle_begin - CLOCK_PERIOD) > (CLOCK_PERIOD / 10)):
+            raise Exception("Failed: Clock cycle was " + str(cycle_end -
+                                                             cycle_begin) + ". Expected somewhere between 1800000 and 2200000.")
+    true_tile.killThread()
+    print("Passed!\n")
+
+
+def testNeighborDrivenClockCycles():
+    print("Testing neighbor-driven clock cycles...")
+    true_tile = Tile("true", is_powered=True)
+    if_tile = Tile("if")
+    if_tile.connectRight(true_tile)
+
+    left_clock_high = 0
+    cycle_begin = 0
+    cycle_end = 0
+    for i in range(5):
+        while(not left_clock_high):
+            left_clock_high = true_tile.left.readClock()
+            if (left_clock_high):
+                cycle_begin = micros()
+        while(left_clock_high):
+            left_clock_high = true_tile.left.readClock()
+            if (not left_clock_high):
+                cycle_end = micros()
+        if(abs(cycle_end - cycle_begin - CLOCK_PERIOD) > (CLOCK_PERIOD / 10)):
+            raise Exception("Failed: Clock cycle was " + str(cycle_end -
+                                                             cycle_begin) + ". Expected somewhere between 1800000 and 2200000.")
+    true_tile.killThread()
+    if_tile.killThread()
+    print("Passed!\n")
+
+
 """
 IF TR
    OU
@@ -170,7 +223,7 @@ EL OU
 """
 
 
-def main():
+def test1():
     if_tile = Tile("if", is_powered=True)
     true_tile = Tile("true")
     output_tile_1 = Tile("output")
@@ -206,6 +259,12 @@ def main():
                     tile.killThread()
 
                 return
+
+
+def main():
+    testSelfDrivenClockCycles()
+    testNeighborDrivenClockCycles()
+    print("All tests passed!")
 
 
 if __name__ == '__main__':
