@@ -35,14 +35,6 @@ class EmbeddedCode (threading.Thread):
         self.ready_to_report = False
 
     def run(self):
-        tile = self.tile
-        print("booting {}".format(tile.syntax_name))
-        tile.top.toggleData(1)
-        tile.right.toggleData(1)
-        tile.bottom.toggleData(1)
-        tile.left.toggleData(1)
-        time.sleep(random.uniform(0.0, 5.0))
-        print("done booting {}".format(tile.syntax_name))
         tileFirmware.init(self, tile)
         while not self.time_to_exit:
             tileFirmware.loop(self, tile)
@@ -63,7 +55,6 @@ class Side:
         self.is_sender = is_sender
         self.data_out = 0
         self.data_in = 0
-        self.clockCallback = lambda: None
         self.neighbor = None
         self.tile = tile
 
@@ -81,28 +72,10 @@ class Side:
         if self.is_sender:
             other.clk_in = self.clk_out
 
-    def toggleClock(self):
-        if self.is_sender:
-            self.clk_out = not self.readClock()
-            if self.neighbor:
-                self.neighbor.clk_in = self.clk_out
-                self.neighbor.clockCallback()
-        else:
-            raise Exception("Not a sender!")
-
-    def registerClockCallback(self, callback):
-        self.clockCallback = callback
-
     def toggleData(self, value):
         self.data_out = value
         if self.neighbor:
             self.neighbor.data_in = value
-
-    def readClock(self):
-        if self.is_sender:
-            return self.clk_out
-        else:
-            return self.clk_in
 
     def readData(self):
         return self.data_in
@@ -262,8 +235,8 @@ def test1():
 
 
 def main():
-    testSelfDrivenClockCycles()
-    testNeighborDrivenClockCycles()
+    # testSelfDrivenClockCycles()
+    # testNeighborDrivenClockCycles()
     print("All tests passed!")
 
 
