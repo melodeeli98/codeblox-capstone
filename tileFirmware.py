@@ -17,10 +17,12 @@ MSG_BIT_4 = 6
 MSG_BIT_5 = 7
 PARITY_BIT = 8
 
-REQUEST_PARENT_MESSAGE = "100000"
-REQUEST_RESEND_MESSAGE = "000010"
-YES_MESSAGE = "000001"
-NO_MESSAGE = "000000"
+REQUEST_PARENT_MESSAGE = [1, 0, 0, 0, 0, 0]
+REQUEST_RESEND_MESSAGE = [0, 0, 0, 0, 1, 0]
+YES_MESSAGE = [0, 0, 0, 0, 0, 1]
+NO_MESSAGE = [0, 0, 0, 0, 0, 0]
+
+# TODO if send resend and receive resend back, reset and tell neighbor to reset (need reset message)
 
 
 class SideStatus(Enum):
@@ -54,10 +56,19 @@ class SideState:
 
 
 class TileStatus(Enum):
+    # Init state, while tile is parentless
     WAITING_FOR_PARENT_REQUEST = 1
+
+    # Sending parent request to bottom and right tiles
     SENDING_REQUEST_TO_CHILDREN = 2
+
+    # Both bottom and right tiles are children. Awaiting both their responses
     WAITING_FOR_TWO_CHILDREN_RESPONSE = 3
+
+    # Only one tile is a child. Awaiting its response
     WAITING_FOR_ONE_CHILD_RESPONSE = 4
+
+    # Tile now has combined topologies. Currently responding to parent
     RESPONDING_TO_PARENT = 5
 
 
@@ -65,12 +76,46 @@ class TileState:
     def __init__(self):
         self.parent_side = None
         self.status = TileStatus.WAITING_FOR_PARENT_REQUEST
+        self.topology = []
+
+# TODO move sending bit to beginning and live bit to the end.
 
 
-def queueMessageToSend(side_state, message):
-    data = [int(char) for char in message]
-    data.append(0 if (sum(data) % 2) == 1 else 1)
-    side_state.data_to_write += data
+def combineTopologies(top1, top2):
+    result = top1 if (len(top1) > len(top2)) else top2
+    shorter_top = top1 if (len(top1) <= len(top2)) else top2
+    length_difference = abs(len(top1) - len(top2))
+    for i in range(len(shorter_top)):
+        for j in range(len(shorter_top[0])):
+            if (shorter_top[i][j] != 0):
+                if (result[i + length_difference][j + length_difference] != 0):
+                    raise Exception("Conflicting child topologies.")
+                result[i + length_difference][j +
+                                              length_difference] = shorter_top[i][j]
+    return result
+
+
+def queueMessage(side_state, message):
+    message.append(0 if (sum(message) % 2) == 1 else 1)
+    side_state.data_to_write += message
+
+
+def queueTopologyMessage(state):
+    data_to_write = []
+    topology = state.tile_state.topology
+    midpoint = len(topology) // 2
+    for i in range(len(topology)):
+        for j in range(len(topology)):
+            if (topology[i][j] != 0):
+                # x coordinate
+                data_to_write.append(
+                    [char for char in intToSignedBinaryString(j - midpoint)])
+                # y coordinate
+                data_to_write.append(
+                    [char for char in intToSignedBinaryString(i - midpoint)])
+                # Encoding
+                data_to_write.append(
+                    [char for char in intToUnsignedBinaryString(topology[i][j])])
 
 
 def resetSideState(side_state):
@@ -104,7 +149,7 @@ def checkDataIn(side_state, tile_side, tile_state):
     elif ((current_time - side_state.last_high_timestamp) > (WORD_SIZE * CLOCK_PERIOD)):
         # Neighbor is dead. Reset state.
         resetSideState(side_state)
-    # TODO is this needed?
+    ###
 
     # Indicate if it's time to read from lines
     if (side_state.neighbor_word_cycle == SENDING_BIT):
@@ -119,22 +164,7 @@ def checkDataIn(side_state, tile_side, tile_state):
             # No longer sending messages
             side_state.neighbor_sending_messages = False
             side_state.data_read = []
-            if (tile_state.status == TileStatus.WAITING_FOR_TWO_CHILDREN_RESPONSE):
-                if (side_state.num_tiles_expected > 0):
-                    # Child sent too few tiles. Request resend.
-                    queueMessageToSend(side_state, REQUEST_RESEND_MESSAGE)
-                else:
-                    # Child done sending topology.
-                    tile_state.status == TileStatus.WAITING_FOR_ONE_CHILD_RESPONSE
-            elif (tile_state.status == TileStatus.WAITING_FOR_ONE_CHILD_RESPONSE):
-                if (side_state.num_tiles_expected > 0):
-                    # Child sent too few tiles. Request resend.
-                    queueMessageToSend(side_state, REQUEST_RESEND_MESSAGE)
-                else:
-                    # Child done sending topology.
-                    tile_state.status == TileStatus.RESPONDING_TO_PARENT
-                    # TODO construct response to parent
-    if (side_state.neighbor_sending_messages and side_state.neighbor_word_cycle == LIVE_BIT):
+    elif (side_state.neighbor_sending_messages and side_state.neighbor_word_cycle == LIVE_BIT):
         if (current_time > side_state.next_read_time):
             if (data_in == 0):
                 # Neighbor is dead. Reset state.
@@ -145,7 +175,7 @@ def checkDataIn(side_state, tile_side, tile_state):
                 side_state.next_read_time = side_state.message_start_timestamp + \
                     (CLOCK_PERIOD * 0.5) + \
                     (CLOCK_PERIOD * side_state.neighbor_word_cycle)
-    if (side_state.neighbor_sending_messages and side_state.neighbor_word_cycle > LIVE_BIT):
+    elif (side_state.neighbor_sending_messages and side_state.neighbor_word_cycle > LIVE_BIT):
         if (current_time > side_state.next_read_time):
             # Time to read
             if (side_state.neighbor_word_cycle < WORD_SIZE):
@@ -175,31 +205,46 @@ def readFromSide(side_state, tile_state, read_value, tile):
     else:
         num_high_bits = sum(side_state.data_read[-MESSAGE_SIZE:])
         if ((num_high_bits + read_value) % 2 != 1):
-            queueMessageToSend(side_state, REQUEST_RESEND_MESSAGE)
+            queueMessage(side_state, REQUEST_RESEND_MESSAGE)
         else:
             message = "".join(str(bit) for bit in side_state.data_read)
             updateStateMachine(message, side_state, tile_state, tile)
 
 
-def updateStateMachine(message, side_state, tile_state, tile):
+def updateStateMachine(message, side_state, tile_state, tile, state):
     if (message == REQUEST_PARENT_MESSAGE):
         if (tile_state.status == TileStatus.WAITING_FOR_PARENT_REQUEST):
             tile_state.parent_side = side_state.name
-            queueMessageToSend(side_state, YES_MESSAGE)
+            queueMessage(side_state, YES_MESSAGE)
             tile_state.status = TileStatus.SENDING_REQUEST_TO_CHILDREN
         else:
-            queueMessageToSend(side_state, NO_MESSAGE)
+            queueMessage(side_state, NO_MESSAGE)
     elif (message == REQUEST_RESEND_MESSAGE):
         # TODO anything else to do here?
         self.next_bit_index_to_write = 0
     elif (message == YES_MESSAGE):
-        if (tile_state.status == TileStatus.WAITING_FOR_TWO_CHILDREN_RESPONSE or tile_state.status == TileStatus.WAITING_FOR_ONE_CHILD_RESPONSE):
+        if (tile_state.status == TileStatus.SENDING_REQUEST_TO_CHILDREN):
+            # TODO need mutex for this?
+            tile_state.status == TileStatus.WAITING_FOR_ONE_CHILD_RESPONSE
             side_state.neighbor_is_child = True
             side_state.status = SideStatus.EXPECTING_X_COORDINATE
+        elif (tile_state.status == TileStatus.WAITING_FOR_ONE_CHILD_RESPONSE):
+            tile_state.status = TileStatus.WAITING_FOR_TWO_CHILDREN_RESPONSE
+            side_state.neighbor_is_child = True
+            side_state.status = SideStatus.EXPECTING_X_COORDINATE
+        else:
+            # Was not expecting this message. Request resend
+            queueMessage(side_state, REQUEST_RESEND_MESSAGE)
     elif (message == NO_MESSAGE):
-        if (tile_state.status == TileStatus.WAITING_FOR_TWO_CHILDREN_RESPONSE or tile_state.status == TileStatus.WAITING_FOR_ONE_CHILD_RESPONSE):
+        if (tile_state.status == TileStatus.SENDING_REQUEST_TO_CHILDREN):
             side_state.neighbor_is_child = False
-            # TODO anything else to do here?
+            side_state.status = SideStatus.NOT_EXPECTING_TILE_INFO
+        elif (tile_state.status == TileStatus.WAITING_FOR_ONE_CHILD_RESPONSE):
+            side_state.neighbor_is_child = False
+            side_state.status = SideStatus.NOT_EXPECTING_TILE_INFO
+        else:
+            # Was not expecting this message. Request resend
+            queueMessage(side_state, REQUEST_RESEND_MESSAGE)
     else:
         if (side_state.status == SideStatus.NOT_EXPECTING_TILE_INFO):
             pass
@@ -217,7 +262,7 @@ def updateStateMachine(message, side_state, tile_state, tile):
         elif (side_state.status == SideStatus.EXPECTING_X_COORDINATE):
             if (side_state.num_tiles_expected < 1):
                 # Child is sending too many tiles. Request resend.
-                queueMessageToSend(side_state, REQUEST_RESEND_MESSAGE)
+                queueMessage(side_state, REQUEST_RESEND_MESSAGE)
             side_state.curr_x_response = binaryStringToInt(message)
             side_state.status = SideStatus.EXPECTING_Y_COORDINATE
 
@@ -234,6 +279,28 @@ def updateStateMachine(message, side_state, tile_state, tile):
             side_state.curr_x_response = 0
             side_state.curr_y_response = 0
 
+    # TODO is this the right way to check when to do this?
+    if (not side_state.neighbor_sending_messages):
+        # Neighbor finished sending messages
+        if (tile_state.status == TileStatus.WAITING_FOR_TWO_CHILDREN_RESPONSE):
+            if (side_state.num_tiles_expected > 0):
+                # Child sent too few tiles. Request resend.
+                queueMessage(side_state, REQUEST_RESEND_MESSAGE)
+            else:
+                # Child done sending topology.
+                tile_state.topology = side_state.topology
+                tile_state.status == TileStatus.WAITING_FOR_ONE_CHILD_RESPONSE
+        elif (tile_state.status == TileStatus.WAITING_FOR_ONE_CHILD_RESPONSE):
+            if (side_state.num_tiles_expected > 0):
+                # Child sent too few tiles. Request resend.
+                queueMessage(side_state, REQUEST_RESEND_MESSAGE)
+            else:
+                # Child done sending topology. Time to send full topology to parent.
+                tile_state.topology = combineTopologies(
+                    tile_state.topology, side_state.topology)
+                tile_state.status == TileStatus.RESPONDING_TO_PARENT
+                queueTopologyMessage(state)
+
 
 def binaryStringToInt(s):
     num = 0
@@ -242,6 +309,18 @@ def binaryStringToInt(s):
         num = num * 2
     num = int(num / 2)
     return -num if s[0] == "1" else num
+
+
+def intToSignedBinaryString(num):
+    s = "{0:05b}".format(abs(num))
+    if (num < 0):
+        return "1" + s
+    else:
+        return "0" + s
+
+
+def intToUnsignedBinaryString(num):
+    return "{0:06b}".format(num)
 
 
 def init(state, tile):
@@ -258,8 +337,12 @@ def loop(state, tile):
 
     if (state.left_state.read_now):
         readFromSide(
-            state.left_state, state.tile_state, tile.left.readData(), tile)
+            state.left_state, state.tile_state, tile.left.readData(), tile, state)
 
     if (state.top_state.read_now):
         readFromSide(
-            state.top_side, state.tile_state, tile.top.readData(), tile)
+            state.top_side, state.tile_state, tile.top.readData(), tile, state)
+
+    # TODO write side logic. Only reset data_to_write when new thing to write is queued up.
+
+# TODO ask left tile to be its parent
