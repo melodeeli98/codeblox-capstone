@@ -10,4 +10,4 @@ def micros():
 
 
 def delayMicros(t):
-    time.sleep(t/1000000)
+    time.sleep(t/1000000.0)

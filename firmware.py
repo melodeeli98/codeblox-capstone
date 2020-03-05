@@ -17,6 +17,27 @@ REQUEST_RESEND_MESSAGE = [0, 0, 0, 0, 1, 0]
 YES_MESSAGE = [0, 0, 0, 0, 0, 1]
 NO_MESSAGE = [0, 0, 0, 0, 0, 0]
 
+AWAKE_MESSAGE = [1, 0, 0, 0, 0, 0, 0, 1]
+
+
 def sendPulse(side):
     side.toggleData()
     side.toggleData()
+
+
+class SideStateMachine:
+    def __init__(self):
+        self.messagesToSend = []
+
+    def enqueueMessage(self, message):
+        self.messagesToSend.append(message)
+
+    def getNextBitToSend(self):
+        if not self.messagesToSend:
+            self.messagesToSend.append(AWAKE_MESSAGE)
+
+        message = self.messagesToSend.pop(0)
+        bit = message.pop(0)
+        if message:
+            self.messagesToSend.insert(0, message)
+        return bit

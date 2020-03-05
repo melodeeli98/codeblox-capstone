@@ -77,6 +77,7 @@ class Side:
         self.data_out = not self.data_out
         if self.neighbor:
             self.neighbor.data_in = self.data_out
+            self.neighbor.tile.wakeUp()
             self.neighbor.interruptHandler()
 
     def readData(self):
@@ -103,7 +104,7 @@ class Tile:
 
         self.thread = EmbeddedCode(self)
         self.thread.start()
-    
+
     def log(self, s):
         if self.is_master:
             print("Master: {}".format(s))
@@ -140,12 +141,8 @@ class Tile:
         self.playHandler = handler
 
     def play(self):
-        try:
-            self.playHandler()
-        except:
-            pass
-
-
+        self.wakeUp()
+        self.playHandler()
 
 
 """
@@ -163,14 +160,14 @@ def test1():
     else_tile = Tile("else")
     output_tile_2 = Tile("output")
 
-    tiles_list = [master_tile, if_tile, true_tile, output_tile_1, else_tile, output_tile_2]
+    tiles_list = [master_tile, if_tile, true_tile,
+                  output_tile_1, else_tile, output_tile_2]
 
     master_tile.connectBottom(if_tile)
     if_tile.connectRight(true_tile)
     true_tile.connectBottom(output_tile_1)
     output_tile_1.connectBottom(output_tile_2)
     output_tile_2.connectLeft(else_tile)
-
 
     time.sleep(1)
     master_tile.play()

@@ -5,8 +5,8 @@ import firmware
 
 
 def topInterruptHandler(state, tile):
-    tile.log("received top pulse!")
-    pass
+    if tile.top.readData():
+        tile.log("received top pulse at {}!".format(micros()))
 
 
 def leftInterruptHandler(state, tile):
@@ -27,13 +27,15 @@ def bottomInterruptHandler(state, tile):
 def init(state, tile):
     tile.log("initializing")
     tile.top.registerInterruptHandler(lambda: topInterruptHandler(state, tile))
-    tile.left.registerInterruptHandler(lambda: leftInterruptHandler(state, tile))
-    tile.right.registerInterruptHandler(lambda: rightInterruptHandler(state, tile))
-    tile.bottom.registerInterruptHandler(lambda: bottomInterruptHandler(state, tile))
+    tile.left.registerInterruptHandler(
+        lambda: leftInterruptHandler(state, tile))
+    tile.right.registerInterruptHandler(
+        lambda: rightInterruptHandler(state, tile))
+    tile.bottom.registerInterruptHandler(
+        lambda: bottomInterruptHandler(state, tile))
 
     state.tiles = []
     state.ready_to_report = False
-    
 
 
 def loop(state, tile):
