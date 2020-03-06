@@ -12,12 +12,16 @@ MSG_BIT_4 = 5
 MSG_BIT_5 = 6
 PARITY_BIT = 7
 
-REQUEST_PARENT_MESSAGE = [1, 0, 0, 0, 0, 0]
-REQUEST_RESEND_MESSAGE = [0, 0, 0, 0, 1, 0]
-YES_MESSAGE = [0, 0, 0, 0, 0, 1]
-NO_MESSAGE = [0, 0, 0, 0, 0, 0]
+WAKE_UP = [1, 0, 0, 0, 0, 0, 0]
+REQUEST_PARENT_TOP = [1] + [1, 0, 0, 0, 0, 1] + [1]
+REQUEST_PARENT_RIGHT = [1] + [1, 0, 0, 0, 1, 0] + [1]
+REQUEST_PARENT_BOTTOM = [1] + [1, 0, 0, 1, 0, 0] + [1]
+REQUEST_PARENT_LEFT = [1] + [1, 0, 1, 0, 0, 0] + [1]
+REQUEST_RESEND_MESSAGE = [1] + [0, 0, 0, 1, 0, 0] + [0]
+YES_MESSAGE = [1] + [0, 0, 0, 0, 1, 0] + [0]
+NO_MESSAGE = [1] + [0, 0, 0, 0, 0, 1] + [0]
 
-AWAKE_MESSAGE = [1, 0, 0, 0, 0, 0, 0, 1]
+AWAKE_MESSAGE = [1] + [0, 0, 0, 0, 0, 0] + [1]
 
 
 def sendPulse(side):

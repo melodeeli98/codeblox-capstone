@@ -7,7 +7,7 @@ from firmware import SideStateMachine
 
 def playHandler(state, tile):
     tile.log("Play!")
-    firmware.sendPulse(tile.bottom)
+    state.sides["bottom"].enqueueMessage(firmware.WAKE_UP)
     state.sides["bottom"].enqueueMessage(firmware.REQUEST_PARENT_MESSAGE)
 
 
