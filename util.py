@@ -14,6 +14,12 @@ def intToSignedBinaryString(num):
     else:
         return "0" + s
 
-
 def intToUnsignedBinaryString(num):
     return "{0:06b}".format(num)
+
+
+def intToSignedBinaryList(num):
+    return [char for char in intToSignedBinaryString(num)]
+
+def intToUnsignedBinaryList(num):
+    return [char for char in intToUnsignedBinaryString(num)]

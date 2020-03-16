@@ -172,7 +172,7 @@ def test1():
     time.sleep(1)
     master_tile.play()
 
-    time.sleep(5)
+    time.sleep(10)
 
     expected_tiles = [
         ["if", "true"],

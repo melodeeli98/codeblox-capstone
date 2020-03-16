@@ -2,13 +2,13 @@ import time
 from arduino import micros, delayMicros
 from enum import Enum
 import firmware
-from firmware import SideStateMachine
+from firmware import SideStateMachine, CLOCK_PERIOD, Message
 
 
 def playHandler(state, tile):
     tile.log("Play!")
-    state.sides["bottom"].enqueueMessage(firmware.WAKE_UP)
-    state.sides["bottom"].enqueueMessage(firmware.REQUEST_PARENT_MESSAGE)
+    state.sides["bottom"].enqueueMessage(Message(False, [firmware.WAKE_UP]))
+    state.sides["bottom"].enqueueMessage(Message(True, [firmware.REQUEST_PARENT_TOP]))
 
 
 def bottomInterruptHandler(state, tile):
@@ -33,5 +33,5 @@ def loop(state, tile):
     bit = state.sides["bottom"].getNextBitToSend()
     if bit > 0:
         firmware.sendPulse(tile.bottom)
-    delayMicros(500000.0)
+    delayMicros(CLOCK_PERIOD)
     return
