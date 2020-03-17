@@ -51,7 +51,7 @@ class EmbeddedCode (threading.Thread):
             time.sleep(0.000000001)
 
     def getTiles(self):
-        return self.tiles
+        return self.topology
 
 
 class Side:
@@ -144,15 +144,57 @@ class Tile:
         self.wakeUp()
         self.playHandler()
 
+def basicTest1():
+    """
+    MA
+    IF
+    """
+    print("Basic Test 1")
 
-"""
-IF TR
-   OU
-EL OU
-"""
+    master_tile = Tile("none", is_master=True)
+    if_tile = Tile("if")
 
+    tiles_list = [master_tile, if_tile]
+
+    master_tile.connectBottom(if_tile)
+
+    time.sleep(1)
+    master_tile.play()
+
+    time.sleep(10)
+
+    expected_tiles = [
+        ["if"]
+    ]
+
+    actual_tiles = master_tile.tiles()
+
+    for r in range(len(expected_tiles)):
+        for c in range(len(expected_tiles[r])):
+            if r >= len(actual_tiles) or c >= len(expected_tiles) or expected_tiles[r][c] != actual_tiles[r][c]:
+                print("Failure!")
+                print("expected:")
+                print(expected_tiles)
+                print("actual: ")
+                print(actual_tiles)
+
+                for tile in tiles_list:
+                    tile.killThread()
+                return
+    
+    print("Pass!")
+    for tile in tiles_list:
+        tile.killThread()
 
 def test1():
+    """
+    MA
+    IF TR
+    OU
+    EL OU
+    """
+    print("Basic Test 1")
+
     master_tile = Tile("none", is_master=True)
     if_tile = Tile("if")
     true_tile = Tile("true")
@@ -192,12 +234,15 @@ def test1():
 
                 for tile in tiles_list:
                     tile.killThread()
-
                 return
+    
+    print("Pass!")
+    for tile in tiles_list:
+        tile.killThread()
 
 
 def main():
-    test1()
+    basicTest1()
 
 
 if __name__ == '__main__':
