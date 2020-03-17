@@ -2,6 +2,7 @@ import time
 from arduino import micros, delayMicros
 import firmware
 from firmware import SideStateMachine, TileStateMachine, TIMEOUT, CLOCK_PERIOD, Message
+import util
 
 def topInterruptHandler(state, tile):
     if (state.sides["top"].neighborIsValid and tile.top.readData()): # Data is high
@@ -42,7 +43,7 @@ def init(state, tile):
     tile.bottom.registerInterruptHandler(
         lambda: bottomInterruptHandler(state, tile))
 
-    state.tiles = []
+    state.topology = []
     state.ready_to_report = False
 
     state.tile_state = TileStateMachine()
@@ -61,10 +62,38 @@ def processMessage(state, tile, sideName):
     if (state.sides[sideName].neighborIsValid):
         message = state.sides[sideName].getNextMessage()
 
-        # TODO put topology receiving logic here
+        if (state.tile_state.tileState == firmware.TileState.WAITING_FOR_CHILD_TOPOLOGIES):
+            if (state.sides[sideName].sideState == firmware.SideState.EXPECTING_NUM_TILES):
+                numTiles = util.messageListToUnsignedInt(message)
+                state.sides[sideName].numTileInfoExpected = numTiles
+                state.sides[sideName].neighborTopology = [[-1 for i in range(numTiles * 2 - 1)] for j in range(numTiles * 2 - 1)]
+                state.sides[sideName].sideState = firmware.SideState.EXPECTING_X_COORDINATE
+                return
+            elif (state.sides[sideName].sideState == firmware.SideState.EXPECTING_X_COORDINATE):
+                xCoordinate = util.messageListToSignedInt(message)
+                state.sides[sideName].currXCoordinate = xCoordinate
+                state.sides[sideName].sideState = firmware.SideState.EXPECTING_Y_COORDINATE
+                return
+            elif (state.sides[sideName].sideState == firmware.SideState.EXPECTING_Y_COORDINATE):
+                yCoordinate = util.messageListToSignedInt(message)
+                state.sides[sideName].currYCoordinate = yCoordinate
+                state.sides[sideName].sideState = firmware.SideState.EXPECTING_ENCODING
+                return
+            elif (state.sides[sideName].sideState == firmware.SideState.EXPECTING_ENCODING):
+                encoding = util.messageListToUnsignedInt(message)
+                midpoint = len(state.sides[sideName].neighborTopology) // 2
+                state.sides[sideName].neighborTopology[midpoint + state.sides[sideName].currYCoordinate][midpoint + state.sides[sideName].currXCoordinate] = encoding
+                state.sides[sideName].numTileInfoExpected -= 1
+                if (state.sides[sideName].numTileInfoExpected > 0):
+                    state.sides[sideName].sideState = firmware.SideState.EXPECTING_X_COORDINATE
+                else:
+                    # TODO add topology to entire tile topology
+                    # TODO check if all sides are either not child or done sending topology. if that's the case, forward topology to parent.
+                    state.sides[sideName].sideState = firmware.SideState.FINISHED_SENDING_TOPOLOGY
+                return
 
-        if (message == firmware.REQUEST_PARENT_TOP):
-            if (state.tileState != firmware.WAITING_FOR_PARENT_REQUEST):
+        elif (message == firmware.REQUEST_PARENT_TOP):
+            if (state.tile_state.tileState != firmware.TileState.WAITING_FOR_PARENT_REQUEST):
                 # Tile already has a parent
                 state.sides[sideName].enqueueMessage(Message(True, [firmware.NO_MESSAGE]))
                 return
@@ -80,15 +109,15 @@ def processMessage(state, tile, sideName):
                 rotateSidesCCW(state)
                 rotateSidesCCW(state)
                 rotateSidesCCW(state)
-            state.tileState.parentName = "top"
+            state.tile_state.parentName = "top"
             # Send parent request to neighbors
-            state.tileState = firmware.TileState.SENDING_PARENT_REQUESTS
+            state.tile_state.tileState = firmware.TileState.SENDING_PARENT_REQUESTS
             state.sides["bottom"].enqueueMessage(Message(True, [firmware.REQUEST_PARENT_TOP]))
             state.sides["right"].enqueueMessage(Message(True, [firmware.REQUEST_PARENT_LEFT]))
             state.sides["left"].enqueueMessage(Message(True, [firmware.REQUEST_PARENT_RIGHT]))
 
         elif (message == firmware.REQUEST_PARENT_LEFT):
-            if (state.tileState != firmware.WAITING_FOR_PARENT_REQUEST):
+            if (state.tile_state.tileState != firmware.TileState.WAITING_FOR_PARENT_REQUEST):
                 # Tile already has a parent
                 state.sides[sideName].enqueueMessage(Message(True, [firmware.NO_MESSAGE]))
                 return
@@ -104,15 +133,15 @@ def processMessage(state, tile, sideName):
                 rotateSidesCCW(state)
                 rotateSidesCCW(state)
                 rotateSidesCCW(state)
-            state.tileState.parentName = "left"
+            state.tile_state.parentName = "left"
             # Send parent request to neighbors
-            state.tileState = firmware.TileState.SENDING_PARENT_REQUESTS
+            state.tile_state.tileState = firmware.TileState.SENDING_PARENT_REQUESTS
             state.sides["bottom"].enqueueMessage(Message(True, [firmware.REQUEST_PARENT_TOP]))
             state.sides["right"].enqueueMessage(Message(True, [firmware.REQUEST_PARENT_LEFT]))
             state.sides["top"].enqueueMessage(Message(True, [firmware.REQUEST_PARENT_BOTTOM]))    
 
         elif (message == firmware.REQUEST_PARENT_BOTTOM):
-            if (state.tileState != firmware.WAITING_FOR_PARENT_REQUEST):
+            if (state.tile_state.tileState != firmware.TileState.WAITING_FOR_PARENT_REQUEST):
                 # Tile already has a parent
                 state.sides[sideName].enqueueMessage(Message(True, [firmware.NO_MESSAGE]))
                 return
@@ -128,15 +157,15 @@ def processMessage(state, tile, sideName):
                 rotateSidesCCW(state)
                 rotateSidesCCW(state)
                 rotateSidesCCW(state)
-            state.tileState.parentName = "bottom"
+            state.tile_state.parentName = "bottom"
             # Send parent request to neighbors
-            state.tileState = firmware.TileState.SENDING_PARENT_REQUESTS
+            state.tile_state.tileState = firmware.TileState.SENDING_PARENT_REQUESTS
             state.sides["left"].enqueueMessage(Message(True, [firmware.REQUEST_PARENT_RIGHT]))
             state.sides["right"].enqueueMessage(Message(True, [firmware.REQUEST_PARENT_LEFT]))
             state.sides["top"].enqueueMessage(Message(True, [firmware.REQUEST_PARENT_BOTTOM]))  
 
         elif (message == firmware.REQUEST_PARENT_RIGHT):
-            if (state.tileState != firmware.WAITING_FOR_PARENT_REQUEST):
+            if (state.tile_state.tileState != firmware.TileState.WAITING_FOR_PARENT_REQUEST):
                 # Tile already has a parent
                 state.sides[sideName].enqueueMessage(Message(True, [firmware.NO_MESSAGE]))
                 return
@@ -152,22 +181,22 @@ def processMessage(state, tile, sideName):
                 rotateSidesCCW(state)
                 rotateSidesCCW(state)
                 rotateSidesCCW(state)
-            state.tileState.parentName = "right"
+            state.tile_state.parentName = "right"
             # Send parent request to neighbors
-            state.tileState = firmware.TileState.SENDING_PARENT_REQUESTS
+            state.tile_state.tileState = firmware.TileState.SENDING_PARENT_REQUESTS
             state.sides["bottom"].enqueueMessage(Message(True, [firmware.REQUEST_PARENT_TOP]))
             state.sides["left"].enqueueMessage(Message(True, [firmware.REQUEST_PARENT_RIGHT]))
             state.sides["top"].enqueueMessage(Message(True, [firmware.REQUEST_PARENT_BOTTOM]))
 
         elif (message == firmware.YES_MESSAGE):
-            if (state.tileState != firmware.TileState.SENDING_PARENT_REQUESTS or state.tileState.parentName == sideName or (sideName in state.tileState.childrenNamesToSendTopology)):
+            if (state.tile_state != firmware.TileState.SENDING_PARENT_REQUESTS or state.tile_state.parentName == sideName):
                 state.sides[sideName].neighborIsValid = False
                 return
-            state.tileState = firmware.TileState.WAITING_FOR_CHILD_TOPOLOGIES
-            state.tileState.childrenNamesToSendTopology += [sideName]
+            state.tile_state.tileState = firmware.TileState.WAITING_FOR_CHILD_TOPOLOGIES
+            state.sides[sideName] = firmware.SideState.EXPECTING_NUM_TILES
 
         elif (message == firmware.NO_MESSAGE):
-            if (state.tileState != firmware.TileState.SENDING_PARENT_REQUESTS or state.tileState.parentName == sideName or (sideName in state.tileState.childrenNamesToSendTopology)):
+            if (state.tile_state.tileState != firmware.TileState.SENDING_PARENT_REQUESTS or state.tile_state.parentName == sideName):
                 state.sides[sideName].neighborIsValid = False
                 return
 

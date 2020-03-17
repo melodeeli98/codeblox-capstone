@@ -34,7 +34,6 @@ class TileStateMachine:
     def __init__(self):
         self.parentName = None
         self.tileState = TileState.WAITING_FOR_PARENT_REQUEST
-        self.childrenNamesToSendTopology = []
 
 class Message:
     def __init__(self, isResendable, messages):
@@ -49,11 +48,13 @@ class TileState(Enum):
     WAITING_FOR_CHILD_TOPOLOGIES = 3
 
 class SideState(Enum):
-    NOT_EXPECTING_TOPOLOGY = 1
-    EXPECTING_NUM_TILES = 2
-    EXPECTING_X_COORDINATE = 3
-    EXPECTING_Y_COORDINATE = 4
-    EXPECTING_ENCODING = 5
+    UNCONFIRMED_CHILD_STATUS = 1
+    NOT_CHILD = 2
+    EXPECTING_NUM_TILES = 3
+    EXPECTING_X_COORDINATE = 4
+    EXPECTING_Y_COORDINATE = 5
+    EXPECTING_ENCODING = 6
+    FINISHED_SENDING_TOPOLOGY = 7
 
 class SideStateMachine:
     def __init__(self):
@@ -64,7 +65,11 @@ class SideStateMachine:
         self.messageStartTime = -1
         self.currBitsRead = []
         self.messagesRead = []
-        self.sideState = SideState.NOT_EXPECTING_TOPOLOGY
+        self.sideState = SideState.UNCONFIRMED_CHILD_STATUS
+        self.numTileInfoExpected = 0
+        self.currXCoordinate = -1
+        self.currYCoordinate = -1
+        self.neighborTopology = []
 
     def enqueueMessage(self, message):
         self.messagesToSend.append(message)
