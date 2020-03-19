@@ -109,7 +109,7 @@ class Tile:
         if self.is_master:
             print("Master: {}".format(s))
         else:
-            print("Slave {}: {}".format(self.id, s))
+            print(" Slave {}: {}".format(self.id, s))
 
     def connectTop(self, other):
         self.top.connect(other.bottom)
@@ -144,6 +144,9 @@ class Tile:
         self.wakeUp()
         self.playHandler()
 
+def encodingToSyntax(encoding):
+    return list(syntax_map.keys())[list(syntax_map.values()).index(encoding)]
+
 def basicTest1():
     """
     MA
@@ -168,6 +171,9 @@ def basicTest1():
     ]
 
     actual_tiles = master_tile.tiles()
+    for i in range(len(actual_tiles)):
+        for j in range(len(actual_tiles)):
+            actual_tiles[i][j] = encodingToSyntax(actual_tiles[i][j])
 
     for r in range(len(expected_tiles)):
         for c in range(len(expected_tiles[r])):
@@ -186,14 +192,14 @@ def basicTest1():
     for tile in tiles_list:
         tile.killThread()
 
-def test1():
+def basicTest2():
     """
     MA
     IF TR
     OU
     EL OU
     """
-    print("Basic Test 1")
+    print("Basic Test 2")
 
     master_tile = Tile("none", is_master=True)
     if_tile = Tile("if")

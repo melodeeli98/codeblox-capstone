@@ -3,6 +3,7 @@ from arduino import micros, delayMicros
 from enum import Enum
 import firmware
 from firmware import SideStateMachine, TileStateMachine, CLOCK_PERIOD, Message, TIMEOUT
+import util
 
 def playHandler(state, tile):
     if (state.communicationInProgress):
@@ -36,7 +37,7 @@ def init(state, tile):
     tile.bottom.registerInterruptHandler(lambda: bottomInterruptHandler(state, tile))
     tile.registerPlayHandler(lambda: playHandler(state, tile))
 
-    state.topology = []
+    state.topology = [[]]
     state.ready_to_report = False
 
     state.communicationInProgress = False
@@ -54,11 +55,13 @@ def processMessage(state, tile, sideName):
         if (state.sides[sideName].sideState == firmware.SideState.UNCONFIRMED_CHILD_STATUS):
             if ([message] == firmware.YES_MESSAGE):
                 tile.log("yes")
-                if (state.tile_state != firmware.TileState.SENDING_PARENT_REQUESTS):
+                if (state.tile_state.tileState != firmware.TileState.SENDING_PARENT_REQUESTS):
+                    tile.log("Error - tilestate is not SENDING_PARENT_REQUESTS")
                     state.sides[sideName].neighborIsValid = False
                     return
                 state.tile_state.tileState = firmware.TileState.WAITING_FOR_CHILD_TOPOLOGIES
-                state.sides[sideName] = firmware.SideState.EXPECTING_NUM_TILES
+                state.sides[sideName].sideState = firmware.SideState.EXPECTING_NUM_TILES
+                return
             elif ([message] == firmware.NO_MESSAGE):
                 tile.log("no")
                 if (state.tile_state.tileState != firmware.TileState.SENDING_PARENT_REQUESTS):
@@ -70,35 +73,36 @@ def processMessage(state, tile, sideName):
                 tile.log("awake")
                 return
 
-            numTiles = util.binaryListToUnsignedInt(message)
-            tile.log("numTiles:", numTiles)
+            numTiles = util.binaryListToUnsignedInt(message[1:-2])
+            tile.log("numTiles: " + str(numTiles))
             state.sides[sideName].numTileInfoExpected = numTiles
             state.sides[sideName].neighborTopology = [[-1 for i in range(numTiles * 2 - 1)] for j in range(numTiles * 2 - 1)]
             state.sides[sideName].sideState = firmware.SideState.EXPECTING_X_COORDINATE
             return
         
         elif (state.sides[sideName].sideState == firmware.SideState.EXPECTING_X_COORDINATE):
-            xCoordinate = util.binaryListToSignedInt(message)
-            tile.log("xCoordinate:", xCoordinate)
+            xCoordinate = util.binaryListToSignedInt(message[1:-2])
+            tile.log("xCoordinate: " + str(xCoordinate))
             state.sides[sideName].currXCoordinate = xCoordinate
             state.sides[sideName].sideState = firmware.SideState.EXPECTING_Y_COORDINATE
             return
        
         elif (state.sides[sideName].sideState == firmware.SideState.EXPECTING_Y_COORDINATE):
-            yCoordinate = util.binaryListToSignedInt(message)
-            tile.log("yCoordinate:", yCoordinate)
+            yCoordinate = util.binaryListToSignedInt(message[1:-2])
+            tile.log("yCoordinate: " + str(yCoordinate))
             state.sides[sideName].currYCoordinate = yCoordinate
             state.sides[sideName].sideState = firmware.SideState.EXPECTING_ENCODING
             return
         
         elif (state.sides[sideName].sideState == firmware.SideState.EXPECTING_ENCODING):
-            encoding = util.binaryListToUnsignedInt(message)
-            tile.log("encoding:", encoding)
+            encoding = util.binaryListToUnsignedInt(message[1:-2])
+            tile.log("encoding: " + str(encoding))
             midpoint = len(state.sides[sideName].neighborTopology) // 2
             state.sides[sideName].neighborTopology[midpoint + state.sides[sideName].currYCoordinate][midpoint + state.sides[sideName].currXCoordinate] = encoding
             state.sides[sideName].numTileInfoExpected -= 1
             if (state.sides[sideName].numTileInfoExpected > 0):
                 state.sides[sideName].sideState = firmware.SideState.EXPECTING_X_COORDINATE
+                return
             else:
                 state.sides[sideName].sideState = firmware.SideState.FINISHED_SENDING_TOPOLOGY
                 state.topology = state.sides[sideName].neighborTopology
@@ -151,8 +155,8 @@ def loop(state, tile):
             
     # Write bit to bottom side
     bit = bottomSideState.getNextBitToSend()
-    tile.log(bottomSideState.messagesToSend)
-    tile.log("Sending " + str(bit))
+    #tile.log(bottomSideState.messagesToSend)
+    #tile.log("Sending " + str(bit))
     if bit > 0:
         firmware.sendPulse(tile.bottom)
 
