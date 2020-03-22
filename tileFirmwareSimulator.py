@@ -152,7 +152,7 @@ def basicTest1():
     MA
     IF
     """
-    print("Basic Test 1")
+    print("############## Basic Test 1 ##############")
 
     master_tile = Tile("none", is_master=True)
     if_tile = Tile("if")
@@ -177,7 +177,7 @@ def basicTest1():
 
     for r in range(len(expected_tiles)):
         for c in range(len(expected_tiles[r])):
-            if r >= len(actual_tiles) or c >= len(expected_tiles) or expected_tiles[r][c] != actual_tiles[r][c]:
+            if r >= len(actual_tiles) or c >= len(actual_tiles[r]) or expected_tiles[r][c] != actual_tiles[r][c]:
                 print("Failure!")
                 print("expected:")
                 print(expected_tiles)
@@ -191,13 +191,15 @@ def basicTest1():
     print("Pass!")
     for tile in tiles_list:
         tile.killThread()
+    
+    print()
 
 def basicTest2():
     """
     MA
     IF TR
     """
-    print("Basic Test 2")
+    print("############## Basic Test 2 ##############")
 
     master_tile = Tile("none", is_master=True)
     if_tile = Tile("if")
@@ -224,7 +226,7 @@ def basicTest2():
 
     for r in range(len(expected_tiles)):
         for c in range(len(expected_tiles[r])):
-            if r >= len(actual_tiles) or c >= len(expected_tiles) or expected_tiles[r][c] != actual_tiles[r][c]:
+            if r >= len(actual_tiles) or c >= len(actual_tiles[r]) or expected_tiles[r][c] != actual_tiles[r][c]:
                 print("Failure!")
                 print("expected:")
                 print(expected_tiles)
@@ -239,6 +241,8 @@ def basicTest2():
     for tile in tiles_list:
         tile.killThread()
 
+    print()
+
 def basicTest5():
     """
     MA
@@ -246,7 +250,7 @@ def basicTest5():
     OU
     EL OU
     """
-    print("Basic Test 5")
+    print("############## Basic Test 5 ##############")
 
     master_tile = Tile("none", is_master=True)
     if_tile = Tile("if")
@@ -282,7 +286,7 @@ def basicTest5():
 
     for r in range(len(expected_tiles)):
         for c in range(len(expected_tiles[r])):
-            if r >= len(actual_tiles) or c >= len(expected_tiles) or expected_tiles[r][c] != actual_tiles[r][c]:
+            if r >= len(actual_tiles) or c >= len(actual_tiles[r]) or expected_tiles[r][c] != actual_tiles[r][c]:
                 print("Failure!")
                 print("expected:")
                 print(expected_tiles)
@@ -297,9 +301,12 @@ def basicTest5():
     for tile in tiles_list:
         tile.killThread()
 
+    print()
 
 def main():
+    #basicTest1()
     basicTest2()
+    #basicTest5()
 
 
 if __name__ == '__main__':

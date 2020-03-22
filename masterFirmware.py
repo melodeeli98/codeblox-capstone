@@ -18,15 +18,11 @@ def playHandler(state, tile):
         state.tile_state.tileState = firmware.TileState.SENDING_PARENT_REQUESTS
         state.sides["bottom"].sideState = firmware.SideState.UNCONFIRMED_CHILD_STATUS
 
-def bottomInterruptHandler(state, tile):
+def sideInterruptHandler(state, tile, dataHigh, sideName):
     time_received = micros()
-    if (state.sides["bottom"].neighborIsValid and tile.bottom.readData()): # Data is high
+    if (state.sides[sideName].neighborIsValid and dataHigh): # Data is high
         #tile.log("received bottom pulse at {}!".format(time_received))
-        #if (state.sides["bottom"].neighborLastHighTime == -1):
-            # Bottom is now alive
-            #state.sides["bottom"].neighborLastHighTime = time_received
-        #else:
-        state.sides["bottom"].handlePulseReceived(time_received, "Master")
+        state.sides[sideName].handlePulseReceived(time_received, "Master")
 
 def resetTile(state, tile):
     tile.log("resetting tile")
@@ -35,7 +31,7 @@ def resetTile(state, tile):
 
 def init(state, tile):
     tile.log("initializing")
-    tile.bottom.registerInterruptHandler(lambda: bottomInterruptHandler(state, tile))
+    tile.bottom.registerInterruptHandler(lambda: sideInterruptHandler(state, tile, tile.bottom.readData(), "bottom"))
     tile.registerPlayHandler(lambda: playHandler(state, tile))
 
     state.topology = [[]]
@@ -69,7 +65,7 @@ def processMessage(state, tile, sideName):
 
         if (state.sides[sideName].sideState == firmware.SideState.UNCONFIRMED_CHILD_STATUS):
             if ([message] == firmware.YES_MESSAGE):
-                tile.log(sideName + " side received yes")
+                tile.log(sideName + " received yes")
                 if (state.tile_state.tileState != firmware.TileState.SENDING_PARENT_REQUESTS):
                     tile.log("Error - tilestate is not SENDING_PARENT_REQUESTS")
                     state.sides[sideName].neighborIsValid = False
@@ -78,18 +74,18 @@ def processMessage(state, tile, sideName):
                 state.sides[sideName].sideState = firmware.SideState.EXPECTING_NUM_TILES
                 return
             elif ([message] == firmware.NO_MESSAGE):
-                tile.log(sideName + " side received no")
+                tile.log(sideName + " received no")
                 if (state.tile_state.tileState != firmware.TileState.SENDING_PARENT_REQUESTS):
                     state.sides[sideName].neighborIsValid = False
                     return
         
         elif (state.sides[sideName].sideState == firmware.SideState.EXPECTING_NUM_TILES):
             if ([message] == firmware.AWAKE_MESSAGE):
-                tile.log(sideName + " side received awake")
+                tile.log(sideName + " received awake")
                 return
 
             numTiles = util.binaryListToUnsignedInt(message[1:-2])
-            tile.log(sideName + " side received numTiles: " + str(numTiles))
+            tile.log(sideName + " received numTiles: " + str(numTiles))
             state.sides[sideName].numTileInfoExpected = numTiles
             state.sides[sideName].neighborTopology = [[0 for i in range(numTiles * 2 - 1)] for j in range(numTiles * 2 - 1)]
             state.sides[sideName].sideState = firmware.SideState.EXPECTING_X_COORDINATE
@@ -97,21 +93,21 @@ def processMessage(state, tile, sideName):
         
         elif (state.sides[sideName].sideState == firmware.SideState.EXPECTING_X_COORDINATE):
             xCoordinate = util.binaryListToSignedInt(message[1:-2])
-            tile.log(sideName + " side received xCoordinate: " + str(xCoordinate))
+            tile.log(sideName + " received xCoordinate: " + str(xCoordinate))
             state.sides[sideName].currXCoordinate = xCoordinate
             state.sides[sideName].sideState = firmware.SideState.EXPECTING_Y_COORDINATE
             return
        
         elif (state.sides[sideName].sideState == firmware.SideState.EXPECTING_Y_COORDINATE):
             yCoordinate = util.binaryListToSignedInt(message[1:-2])
-            tile.log(sideName + " side received yCoordinate: " + str(yCoordinate))
+            tile.log(sideName + " received yCoordinate: " + str(yCoordinate))
             state.sides[sideName].currYCoordinate = yCoordinate
             state.sides[sideName].sideState = firmware.SideState.EXPECTING_ENCODING
             return
         
         elif (state.sides[sideName].sideState == firmware.SideState.EXPECTING_ENCODING):
             encoding = util.binaryListToUnsignedInt(message[1:-2])
-            tile.log(sideName + " side received encoding: " + str(encoding))
+            tile.log(sideName + " received encoding: " + str(encoding))
             midpoint = len(state.sides[sideName].neighborTopology) // 2
             state.sides[sideName].neighborTopology[midpoint + state.sides[sideName].currYCoordinate][midpoint + state.sides[sideName].currXCoordinate] = encoding
             state.sides[sideName].numTileInfoExpected -= 1
@@ -127,11 +123,11 @@ def processMessage(state, tile, sideName):
                 return
         
         if ([message] == firmware.AWAKE_MESSAGE):
-            tile.log(sideName + " side received awake")
+            tile.log(sideName + " received awake")
             return
 
         else:
-            tile.log(sideName + " side received invalid message")
+            tile.log(sideName + " received invalid message")
             state.sides[sideName].neighborIsValid = False
 
 def handleBottomTileDied(state, tile):
@@ -144,24 +140,20 @@ def handleBottomTileDied(state, tile):
         tile.sleep()
 
 def loop(state, tile):
-    #next_check_timeout_time = micros() + TIMEOUT
     curr_time = micros()
 
     bottomSideState = state.sides["bottom"]
     if (not bottomSideState.neighborIsValid):
-        tile.log("Bottom side died due to error")
+        tile.log("Bottom died due to error")
         handleBottomTileDied(state, tile)
         return
     else:
         if (bottomSideState.neighborLastHighTime != -1):
             if (micros() - bottomSideState.neighborLastHighTime > TIMEOUT):
                 # Bottom side died
-                tile.log("Bottom side timed out")
+                tile.log("Bottom timed out")
                 handleBottomTileDied(state, tile)
                 return
-            #else:
-                #if (bottomSideState.neighborLastHighTime + TIMEOUT < next_check_timeout_time):
-                    #next_check_timeout_time = bottomSideState.neighborLastHighTime + TIMEOUT
         
     # Read message
     if (bottomSideState.hasMessage()):
@@ -174,7 +166,4 @@ def loop(state, tile):
     if bit > 0:
         firmware.sendPulse(tile.bottom)
 
-    #curr_time = micros()
-    #if (next_check_timeout_time - curr_time > 0):
-        #delayMicros(next_check_timeout_time - curr_time)
     delayMicros(CLOCK_PERIOD - (micros() - curr_time))
