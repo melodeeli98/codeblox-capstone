@@ -172,7 +172,7 @@ def basicTest1():
 
     actual_tiles = master_tile.tiles()
     for i in range(len(actual_tiles)):
-        for j in range(len(actual_tiles)):
+        for j in range(len(actual_tiles[0])):
             actual_tiles[i][j] = encodingToSyntax(actual_tiles[i][j])
 
     for r in range(len(expected_tiles)):
@@ -196,10 +196,57 @@ def basicTest2():
     """
     MA
     IF TR
+    """
+    print("Basic Test 2")
+
+    master_tile = Tile("none", is_master=True)
+    if_tile = Tile("if")
+    true_tile = Tile("true")
+
+    tiles_list = [master_tile, if_tile, true_tile]
+
+    master_tile.connectBottom(if_tile)
+    if_tile.connectRight(true_tile)
+
+    time.sleep(1)
+    master_tile.play()
+
+    time.sleep(10)
+
+    expected_tiles = [
+        ["if", "true"],
+    ]
+
+    actual_tiles = master_tile.tiles()
+    for i in range(len(actual_tiles)):
+        for j in range(len(actual_tiles[0])):
+            actual_tiles[i][j] = encodingToSyntax(actual_tiles[i][j])
+
+    for r in range(len(expected_tiles)):
+        for c in range(len(expected_tiles[r])):
+            if r >= len(actual_tiles) or c >= len(expected_tiles) or expected_tiles[r][c] != actual_tiles[r][c]:
+                print("Failure!")
+                print("expected:")
+                print(expected_tiles)
+                print("actual: ")
+                print(actual_tiles)
+
+                for tile in tiles_list:
+                    tile.killThread()
+                return
+    
+    print("Pass!")
+    for tile in tiles_list:
+        tile.killThread()
+
+def basicTest5():
+    """
+    MA
+    IF TR
     OU
     EL OU
     """
-    print("Basic Test 2")
+    print("Basic Test 5")
 
     master_tile = Tile("none", is_master=True)
     if_tile = Tile("if")
@@ -227,7 +274,11 @@ def basicTest2():
         ["none", "output"],
         ["else", "output"]
     ]
+
     actual_tiles = master_tile.tiles()
+    for i in range(len(actual_tiles)):
+        for j in range(len(actual_tiles[0])):
+            actual_tiles[i][j] = encodingToSyntax(actual_tiles[i][j])
 
     for r in range(len(expected_tiles)):
         for c in range(len(expected_tiles[r])):
@@ -248,7 +299,7 @@ def basicTest2():
 
 
 def main():
-    basicTest1()
+    basicTest2()
 
 
 if __name__ == '__main__':

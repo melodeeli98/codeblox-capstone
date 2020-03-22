@@ -53,6 +53,7 @@ class TileState(Enum):
     WAITING_FOR_PARENT_REQUEST = 1
     SENDING_PARENT_REQUESTS = 2
     WAITING_FOR_CHILD_TOPOLOGIES = 3
+    SENDING_TOPOLOGY = 4
 
 class SideState(Enum):
     UNCONFIRMED_CHILD_STATUS = 1
@@ -77,6 +78,7 @@ class SideStateMachine:
         self.currXCoordinate = -1
         self.currYCoordinate = -1
         self.neighborTopology = []
+        self.readyToSendMessages = False
 
     def reset(self):
         self.__init__()
@@ -87,7 +89,7 @@ class SideStateMachine:
         numTiles = 0
         for i in range(len(topology)):
             for j in range(len(topology)):
-                if (topology[i][j] != -1):
+                if (topology[i][j] != 0):
                     numTiles += 1
                     # x coordinate
                     messages.append([char for char in util.intToSignedBinaryMessage(j - midpoint)])
@@ -96,10 +98,11 @@ class SideStateMachine:
                     # Encoding
                     messages.append([char for char in util.intToUnsignedBinaryMessage(topology[i][j])])
         messages[0] = util.intToUnsignedBinaryMessage(numTiles)
-        print("TOPOLOGY:", messages)
+        #print("TOPOLOGY:", messages)
         self.enqueueMessage(Message(True, messages))
 
-    def enqueueMessage(self, message):
+    def enqueueMessage(self, message, name=""):
+        #print(name + ": enqueueing " + str(message))
         self.messagesToSend.append(message)
 
     def getNextBitToSend(self):
@@ -125,7 +128,6 @@ class SideStateMachine:
         return bit
 
     def handlePulseReceived(self, time_received, name):
-        self.neighborLastHighTime = time_received
         if (self.messageStartTime == -1):
             print(name + ": pulse at word cycle 0")
             # A new message has begun
@@ -136,12 +138,12 @@ class SideStateMachine:
             print(name + ": pulse at word cycle", wordCycle)
             if (wordCycle == -1):
                 self.neighborIsValid = False
-                #self.enqueueMessage(Message(True, REQUEST_RESEND_MESSAGE))
+                #self.enqueueMessage(Message(True, REQUEST_RESEND_MESSAGE), name)
             elif (wordCycle < len(self.currBitsRead)):
                 # Received multiple pulses within cycle. Request resend.
                 self.neighborIsValid = False
-                print(name + ": two pulses within a cycle")
-                #self.enqueueMessage(Message(True, REQUEST_RESEND_MESSAGE))
+                #print(name + ": two pulses within a cycle")
+                #self.enqueueMessage(Message(True, REQUEST_RESEND_MESSAGE), name)
             else:
                 for i in range(len(self.currBitsRead), wordCycle):
                     self.currBitsRead.append(0)
@@ -159,7 +161,7 @@ class SideStateMachine:
                     if (int((highBitCount + parity) % 2) != 1):
                         print(name + ": invalid message from parity")
                         self.neighborIsValid = False
-                        #self.enqueueMessage(Message(True, REQUEST_RESEND_MESSAGE))
+                        #self.enqueueMessage(Message(True, REQUEST_RESEND_MESSAGE), name)
                     else:
                         #print(name + ": self.messagesRead", self.messagesRead)
                         self.messagesRead += [self.currBitsRead]
