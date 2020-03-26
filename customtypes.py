@@ -1,0 +1,3 @@
+TYPE_ANY = 1
+TYPE_NUM = 2
+TYPE_BOOL = 3
