@@ -4,18 +4,19 @@ variables = {"var1": 4, "var2": 49}
 numbers = {"0": 0, "1": 1, "2": 2, "3": 3, "4": 4,
            "5": 5, "6": 6, "7": 7, "8": 8, "9": 9}
 booleans = {"True": True, "False": False}
-b_operations = {"+": lambda x, y: x+y,
-                "-": lambda x, y: x-y,
-                "*": lambda x, y: x*y,
-                "/": lambda x, y: x/y,
-                "<": lambda x, y: x < y,
-                "<=": lambda x, y: x <= y,
-                "=": lambda x, y: x == y,
-                "!=": lambda x, y: x != y,
-                ">": lambda x, y: x > y,
-                ">=": lambda x, y: x >= y,
-                "and": lambda x, y: x and y,
-                "or": lambda x, y: x or y}
+b_operations = {"+": {"level": 2, "fn": lambda x, y: x+y},
+                "-": {"level": 2, "fn": lambda x, y: x-y},
+                "*": {"level": 3, "fn": lambda x, y: x*y},
+                "/": {"level": 3, "fn": lambda x, y: x/y},
+                "<": {"level": 1, "fn": lambda x, y: x < y},
+                "<=": {"level": 1, "fn": lambda x, y: x <= y},
+                "=": {"level": 1, "fn": lambda x, y: x == y},
+                "!=": {"level": 1, "fn": lambda x, y: x != y},
+                ">": {"level": 1, "fn": lambda x, y: x > y},
+                ">=": {"level": 1, "fn": lambda x, y: x >= y},
+                "and": {"level": 3, "fn": lambda x, y: x and y},
+                "or": {"level": 2, "fn": lambda x, y: x or y}}
+max_level = 3
 u_operations = {"not": lambda x: not x}
 
 
@@ -70,11 +71,28 @@ def eval(tiles):
         return eval([{"type": "value", "value": f(arg1)}]+remainingTiles)
 
     elif tiles[0]["type"] == "value":
-        arg1 = tiles[0]["value"]
+        eval_list = [tiles[0]["value"]]
         assert tiles[1]["type"] == "b_operation"
-        f = tiles[1]["value"]
-        (arg2, remainingTiles) = getNextArg(tiles[2:])
-        return eval([{"type": "value", "value": f(arg1, arg2)}]+remainingTiles)
+        eval_list.append(tiles[1]["value"])
+        (arg, remainingTiles) = getNextArg(tiles[2:])
+        eval_list.append(arg)
+        while len(remainingTiles) > 0:
+            assert remainingTiles[0]["type"] == "b_operation"
+            eval_list.append(remainingTiles[0]["value"])
+            (arg, remainingTiles) = getNextArg(remainingTiles[1:])
+            eval_list.append(arg)
+        level = max_level
+        while len(eval_list) > 1:
+            e = 1
+            while e < len(eval_list):
+                if eval_list[e]["level"] == level:
+                    eval_list[e -
+                              1] = eval_list[e]["fn"](eval_list[e-1], eval_list[e+1])
+                    eval_list = eval_list[:e] + eval_list[e+2:]
+                else:
+                    e += 2
+            level -= 1
+        return {"type": "value", "value": eval_list[0]}
 
 
 # Combines number strings together to form one python number
@@ -115,7 +133,11 @@ def evalTiles(tiles):
     return eval(tiles)["value"]
 
 
+tiles = "1 + 2 * 3 = 7".split()
+print(evalTiles(tiles))
+"""
 tiles = "not ( ( var1 + 1 2 ) * 3 < var2 )".split()
 print(evalTiles(tiles))
 tiles = "( var1 + 1 2 ) * 3".split()
 print(evalTiles(tiles))
+"""
