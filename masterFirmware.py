@@ -7,11 +7,13 @@ import util
 import copy
 
 def playHandler(state, tile):
-    if (state.communicationInProgress):
+    delayMicros(3000000) # Delay long enough for slave tiles to initialize / reset
+    if (state.tile_state.wakeupTime != -1):
         tile.log("New Play Attempt Queued")
         state.newAttemptQueued = True
     else:
-        state.communicationInProgress = True
+        tile.wakeUp()
+        state.tile_state.wakeupTime = micros()
         tile.log("Play!")
         state.sides["bottom"].enqueueMessage(Message(False, firmware.WAKE_UP), "Master")
         state.sides["bottom"].enqueueMessage(Message(True, firmware.REQUEST_PARENT_TOP), "Master")
@@ -22,22 +24,23 @@ def sideInterruptHandler(state, tile, dataHigh, sideName):
     time_received = micros()
     if (state.sides[sideName].neighborIsValid and dataHigh): # Data is high
         #tile.log("received bottom pulse at {}!".format(time_received))
+        state.sides[sideName].neighborLastHighTime = time_received
         state.sides[sideName].handlePulseReceived(time_received, "Master")
 
 def resetTile(state, tile):
     tile.log("resetting tile")
-    state.tile_state.reset()
+    delayMicros(TIMEOUT) # Delay long enough for neighboring tile to time out
     init(state, tile)
 
 def init(state, tile):
+    state.ready_to_report = False
+
     tile.log("initializing")
     tile.bottom.registerInterruptHandler(lambda: sideInterruptHandler(state, tile, tile.bottom.readData(), "bottom"))
     tile.registerPlayHandler(lambda: playHandler(state, tile))
 
     state.topology = [[]]
-    state.ready_to_report = False
 
-    state.communicationInProgress = False
     state.newAttemptQueued = False
 
     state.tile_state = TileStateMachine()
@@ -119,7 +122,13 @@ def processMessage(state, tile, sideName):
                 state.topology = stripTopology(state.sides[sideName].neighborTopology)
                 
                 # Ready to report topology
+                tile.log("ready to report topology")
                 state.ready_to_report = True
+                if (state.newAttemptQueued):
+                    resetTile(state, tile)
+                    playHandler(state, tile)
+                else:
+                    resetTile(state, tile)
                 return
         
         if ([message] == firmware.AWAKE_MESSAGE):
@@ -127,7 +136,7 @@ def processMessage(state, tile, sideName):
             return
 
         else:
-            tile.log(sideName + " received invalid message")
+            tile.log(sideName + " received invalid message " + str(message))
             state.sides[sideName].neighborIsValid = False
 
 def handleBottomTileDied(state, tile):
@@ -140,30 +149,31 @@ def handleBottomTileDied(state, tile):
         tile.sleep()
 
 def loop(state, tile):
-    curr_time = micros()
+    if (state.tile_state.wakeupTime != -1):
+        curr_time = micros()
 
-    bottomSideState = state.sides["bottom"]
-    if (not bottomSideState.neighborIsValid):
-        tile.log("Bottom died due to error")
-        handleBottomTileDied(state, tile)
-        return
-    else:
-        if (bottomSideState.neighborLastHighTime != -1):
-            if (micros() - bottomSideState.neighborLastHighTime > TIMEOUT):
+        bottomSideState = state.sides["bottom"]
+        if (not bottomSideState.neighborIsValid):
+            tile.log("Bottom died due to error")
+            handleBottomTileDied(state, tile)
+            return
+        else:
+            now = micros()
+            if ((bottomSideState.neighborLastHighTime == -1 and state.tile_state.wakeupTime + (TIMEOUT * 2) < now) or (bottomSideState.neighborLastHighTime != -1 and now - bottomSideState.neighborLastHighTime > TIMEOUT)):
                 # Bottom side died
                 tile.log("Bottom timed out")
                 handleBottomTileDied(state, tile)
                 return
-        
-    # Read message
-    if (bottomSideState.hasMessage()):
-        processMessage(state, tile, "bottom")
-            
-    # Write bit to bottom side
-    bit = bottomSideState.getNextBitToSend()
-    #tile.log(bottomSideState.messagesToSend)
-    #tile.log("Sending " + str(bit))
-    if bit > 0:
-        firmware.sendPulse(tile.bottom)
 
-    delayMicros(CLOCK_PERIOD - (micros() - curr_time))
+        # Read message
+        if (bottomSideState.hasMessage()):
+            processMessage(state, tile, "bottom")
+        
+        # Write bit to bottom side
+        tile.log(bottomSideState.messagesToSend)
+        bit = bottomSideState.getNextBitToSend()
+        tile.log("Sending " + str(bit))
+        if bit > 0:
+            firmware.sendPulse(tile.bottom)
+
+        delayMicros(CLOCK_PERIOD - (micros() - curr_time)) # Delay long enough for next clock cycle

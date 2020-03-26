@@ -5,7 +5,7 @@ from firmware import SideStateMachine, TileStateMachine, TIMEOUT, CLOCK_PERIOD, 
 import util
 
 def firstPulseReceived(state):
-    return state.sides["top"].neighborLastHighTime == -1 and state.sides["bottom"].neighborLastHighTime == -1 and state.sides["right"].neighborLastHighTime == -1 and state.sides["left"].neighborLastHighTime == -1
+    return state.tile_state.wakeupTime == -1
 
 def wakeUpOtherSides(tile, state, sideName):
     for (name, sideState) in state.sides.items():
@@ -15,17 +15,22 @@ def wakeUpOtherSides(tile, state, sideName):
 def sideInterruptHandler(state, tile, dataHigh, sideName):
     time_received = micros()
     if (state.sides[sideName].neighborIsValid and dataHigh):
+        state.sides[sideName].sideMutex.acquire()
         #tile.log("received " + sideName + " pulse at {}!".format(time_received))
         if (firstPulseReceived(state)):
+            state.tile_state.wakeupTime = time_received
             # Side sent wake up signal
             tile.log("woke up")
             wakeUpOtherSides(tile, state, sideName)
         else:
-            state.sides[sideName].handlePulseReceived(time_received, " Slave " + str(tile.id) + " " + sideName)
+            state.sides[sideName].newPulseTimes.append(time_received)
+            state.sides[sideName].newPulseTimes.sort()
         state.sides[sideName].neighborLastHighTime = time_received
+        state.sides[sideName].sideMutex.release()
 
 def resetTile(state, tile):
     tile.log("resetting tile")
+    delayMicros(TIMEOUT) # Delay long enough for neighboring tile to time out
     state.tile_state.reset()
     init(state, tile)
 
@@ -47,17 +52,14 @@ def init(state, tile):
 def combineTopologies(tile, top1, top2):
     result = top1 if (len(top1) > len(top2)) else top2
     shorter_top = top1 if (len(top1) <= len(top2)) else top2
-    length_difference = abs(len(top1) - len(top2))
-    if (length_difference > 0):
-        length_difference -= 1
+    midpointDifference = (len(result) // 2) - (len(shorter_top) // 2)
     for i in range(len(shorter_top)):
         for j in range(len(shorter_top[0])):
             if (shorter_top[i][j] != 0):
-                if (result[i + length_difference][j + length_difference] != shorter_top[i][j]):
-                    if (result[i + length_difference][j + length_difference] != 0):
+                if (result[i + midpointDifference][j + midpointDifference] != shorter_top[i][j]):
+                    if (result[i + midpointDifference][j + midpointDifference] != 0):
                         raise Exception("Conflicting child topologies.")
-                    result[i + length_difference][j +
-                                                length_difference] = shorter_top[i][j]
+                    result[i + midpointDifference][j + midpointDifference] = shorter_top[i][j]
     tile.log("topology is now " + str(result))
     return result
 
@@ -187,7 +189,7 @@ def processMessage(state, tile, sideName, message):
         return
 
     else:
-        tile.log(sideName + " received invalid message")
+        tile.log(sideName + " received invalid message" + str(message))
         state.sides[sideName].neighborIsValid = False
         return
 
@@ -196,7 +198,7 @@ def loop(state, tile):
     for (sideName, sideState) in state.sides.items():
         if (sideState.neighborIsValid):
             now = micros()
-            if (now - sideState.neighborLastHighTime > TIMEOUT):
+            if ((sideState.neighborLastHighTime == -1 and state.tile_state.wakeupTime + (TIMEOUT * 2) < now) or (sideState.neighborLastHighTime != -1 and now - sideState.neighborLastHighTime > TIMEOUT)):
                 # Neighbor died
                 tile.log(sideName + " timed out. last high time: " + str(sideState.neighborLastHighTime) + " current time: " + str(now))
                 # sideState.reset() # TODO is this necessary?
@@ -204,8 +206,51 @@ def loop(state, tile):
                 if (state.tile_state.parentName == sideName):
                     # Parent died, therefore this tile should reset
                     resetTile(state, tile)
-                    tile.sleep()
-                    tile.killThread()
+
+    # Write bits to sides
+    if (state.tile_state.wakeupTime != -1):
+        if (state.sides["top"].neighborIsValid):
+            if (tile.id == 1):
+                tile.log("Top messages to send: " + str(state.sides["top"].messagesToSend))
+            bit = state.sides["top"].getNextBitToSend()
+            if (tile.id == 1):
+                tile.log("Top sending bit: " + str(bit))
+            if bit > 0:
+                firmware.sendPulse(tile.top)
+        if (state.sides["bottom"].neighborIsValid):
+            bit = state.sides["bottom"].getNextBitToSend()
+            if bit > 0:
+                firmware.sendPulse(tile.bottom)
+        if (state.sides["left"].neighborIsValid):
+            bit = state.sides["left"].getNextBitToSend()
+            if bit > 0:
+                firmware.sendPulse(tile.left)
+        if (state.sides["right"].neighborIsValid):
+            bit = state.sides["right"].getNextBitToSend()
+            if bit > 0:
+                firmware.sendPulse(tile.right)
+
+    # Process pulses
+    state.sides["top"].sideMutex.acquire()
+    state.sides["right"].sideMutex.acquire()
+    state.sides["left"].sideMutex.acquire()
+    state.sides["bottom"].sideMutex.acquire()
+    if (state.sides["top"].newPulseTimes):
+        time_received = state.sides["top"].newPulseTimes.pop(0)
+        state.sides["top"].handlePulseReceived(time_received, " Slave " + str(tile.id) + " " + "top")
+    if (state.sides["right"].newPulseTimes):
+        time_received = state.sides["right"].newPulseTimes.pop(0)
+        state.sides["right"].handlePulseReceived(time_received, " Slave " + str(tile.id) + " " + "right")
+    if (state.sides["left"].newPulseTimes):
+        time_received = state.sides["left"].newPulseTimes.pop(0)
+        state.sides["left"].handlePulseReceived(time_received, " Slave " + str(tile.id) + " " + "left")
+    if (state.sides["bottom"].newPulseTimes):
+        time_received = state.sides["bottom"].newPulseTimes.pop(0)
+        state.sides["bottom"].handlePulseReceived(time_received, " Slave " + str(tile.id) + " " + "bottom")
+    state.sides["top"].sideMutex.release()
+    state.sides["right"].sideMutex.release()
+    state.sides["left"].sideMutex.release()
+    state.sides["bottom"].sideMutex.release()
 
     # Read messages
     if (state.sides["top"].hasMessage() and state.sides["top"].neighborIsValid):
@@ -217,31 +262,10 @@ def loop(state, tile):
     elif (state.sides["bottom"].hasMessage() and state.sides["bottom"].neighborIsValid):
         processMessage(state, tile, "bottom", state.sides["bottom"].getNextMessage())
 
-    # Write bits to sides
-    if (state.sides["top"].neighborIsValid):
-        bit = state.sides["top"].getNextBitToSend()
-        #if (tile.id == 1):
-            #tile.log("Top messages to send: " + str(state.sides["top"].messagesToSend))
-            #tile.log("Top sending bit: " + str(bit))
-        if bit > 0:
-            firmware.sendPulse(tile.top)
-    if (state.sides["bottom"].neighborIsValid):
-        bit = state.sides["bottom"].getNextBitToSend()
-        if bit > 0:
-            firmware.sendPulse(tile.bottom)
-    if (state.sides["left"].neighborIsValid):
-        bit = state.sides["left"].getNextBitToSend()
-        if bit > 0:
-            firmware.sendPulse(tile.left)
-    if (state.sides["right"].neighborIsValid):
-        bit = state.sides["right"].getNextBitToSend()
-        if bit > 0:
-            firmware.sendPulse(tile.right)
-
     for (sideName, sideState) in state.sides.items():
         if (sideState.neighborIsValid and sideState.sideState != firmware.SideState.NOT_CHILD and sideState.sideState != firmware.SideState.FINISHED_SENDING_TOPOLOGY):
             # Not ready to forward topology to parent.
-            delayMicros(CLOCK_PERIOD - (micros() - curr_time))
+            delayMicros(CLOCK_PERIOD - (micros() - curr_time)) # Delay long enough for next clock cycle
             return
         
     if (state.tile_state.parentName != None and not state.tile_state.reportedTopology):
@@ -251,4 +275,4 @@ def loop(state, tile):
         tile.log("Sending topology to parent")
         state.sides[state.tile_state.parentName].enqueueTopology(state.topology)
     
-    delayMicros(CLOCK_PERIOD - (micros() - curr_time))
+    delayMicros(CLOCK_PERIOD - (micros() - curr_time)) # Delay long enough for next clock cycle

@@ -1,8 +1,9 @@
 from enum import Enum
 import util
+from threading import Lock
 
-#CLOCK_PERIOD = 500000  # 500000us (0.5 sec)
-CLOCK_PERIOD = 2000000  # 2 sec
+CLOCK_PERIOD = 100000  # 100000us (0.1 sec)
+#CLOCK_PERIOD = 2000000  # 2 sec
 MESSAGE_SIZE = 6
 WORD_SIZE = MESSAGE_SIZE + 2
 AWAKE_BIT = 0
@@ -13,7 +14,7 @@ MSG_BIT_3 = 4
 MSG_BIT_4 = 5
 MSG_BIT_5 = 6
 PARITY_BIT = 7
-TIMEOUT = CLOCK_PERIOD * WORD_SIZE * 2
+TIMEOUT = CLOCK_PERIOD * WORD_SIZE * 1.1
 
 WAKE_UP = [[1, 0, 0, 0, 0, 0, 0]]
 
@@ -35,6 +36,7 @@ class TileStateMachine:
         self.parentName = None
         self.tileState = TileState.WAITING_FOR_PARENT_REQUEST
         self.reportedTopology = False
+        self.wakeupTime = -1
 
     def reset(self):
         self.__init__()
@@ -77,6 +79,8 @@ class SideStateMachine:
         self.currXCoordinate = -1
         self.currYCoordinate = -1
         self.neighborTopology = []
+        self.newPulseTimes = []
+        self.sideMutex = Lock()
 
     def reset(self):
         self.__init__()
@@ -122,6 +126,8 @@ class SideStateMachine:
         return bit
 
     def handlePulseReceived(self, time_received, name):
+        #if (name == " Slave 1 top"):
+            #print(name + " handling pulse read at " + str(time_received))
         if (self.messageStartTime == -1):
             # A new message has begun
             #print(name + ": pulse at word cycle 0")
@@ -142,17 +148,18 @@ class SideStateMachine:
                     self.currBitsRead.append(0)
                 self.currBitsRead.append(1)
 
-                #print(name + ": currBitsRead", self.currBitsRead)
-
                 if (wordCycle == WORD_SIZE):
                     # End of word cycle. Check parity and update state machine for message.
                     highBitCount = 0
                     message = self.currBitsRead[1:-2]
                     parity = self.currBitsRead[-2]
+                    #if (name == " Slave 1 top"):
+                        #print(name + ": currBitsRead", self.currBitsRead)
                     for i in range(len(message)):
                         highBitCount += message[i]
                     if (int((highBitCount + parity) % 2) != 1):
                         print(name + ": invalid message from parity")
+                        print(name + " currBitsRead", self.currBitsRead)
                         self.neighborIsValid = False
                         #self.enqueueMessage(Message(True, REQUEST_RESEND_MESSAGE), name)
                     else:
