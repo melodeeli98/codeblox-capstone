@@ -30,8 +30,6 @@ def sideInterruptHandler(state, tile, dataHigh, sideName):
 
 def resetTile(state, tile):
     tile.log("resetting tile")
-    delayMicros(TIMEOUT) # Delay long enough for neighboring tile to time out
-    state.tile_state.reset()
     init(state, tile)
 
 def init(state, tile):
@@ -106,7 +104,7 @@ def processMessage(state, tile, sideName, message):
     if (state.tile_state.tileState == firmware.TileState.WAITING_FOR_CHILD_TOPOLOGIES):
         if (state.sides[sideName].sideState == firmware.SideState.EXPECTING_NUM_TILES):
             if ([message] == firmware.AWAKE_MESSAGE):
-                tile.log(sideName + " received awake message")
+                #tile.log(sideName + " received awake message")
                 return
 
             numTiles = util.binaryListToUnsignedInt(message[1:-2])
@@ -131,7 +129,7 @@ def processMessage(state, tile, sideName, message):
             return
         elif (state.sides[sideName].sideState == firmware.SideState.EXPECTING_ENCODING):
             encoding = util.binaryListToUnsignedInt(message[1:-2])
-            tile.log(sideName + " received encoding:" + str(encoding))
+            tile.log(sideName + " received encoding: " + str(encoding))
             midpoint = len(state.sides[sideName].neighborTopology) // 2
             xOffset = 0
             yOffset = 0
@@ -150,6 +148,7 @@ def processMessage(state, tile, sideName, message):
                 return
             else:
                 state.sides[sideName].sideState = firmware.SideState.FINISHED_SENDING_TOPOLOGY
+                state.sides[sideName].neighborIsValid = False
                 state.topology = combineTopologies(tile, state.sides[sideName].neighborTopology, state.topology)
                 return
 
@@ -185,11 +184,11 @@ def processMessage(state, tile, sideName, message):
             return
 
     elif ([message] == firmware.AWAKE_MESSAGE):
-        tile.log(sideName + " received awake")
+        #tile.log(sideName + " received awake")
         return
 
     else:
-        tile.log(sideName + " received invalid message" + str(message))
+        tile.log(sideName + " received invalid message " + str(message))
         state.sides[sideName].neighborIsValid = False
         return
 
@@ -200,7 +199,7 @@ def loop(state, tile):
             now = micros()
             if ((sideState.neighborLastHighTime == -1 and state.tile_state.wakeupTime + (TIMEOUT * 2) < now) or (sideState.neighborLastHighTime != -1 and now - sideState.neighborLastHighTime > TIMEOUT)):
                 # Neighbor died
-                tile.log(sideName + " timed out. last high time: " + str(sideState.neighborLastHighTime) + " current time: " + str(now))
+                #tile.log(sideName + " timed out. last high time: " + str(sideState.neighborLastHighTime) + " current time: " + str(now))
                 # sideState.reset() # TODO is this necessary?
                 sideState.neighborIsValid = False
                 if (state.tile_state.parentName == sideName):
@@ -210,23 +209,27 @@ def loop(state, tile):
     # Write bits to sides
     if (state.tile_state.wakeupTime != -1):
         if (state.sides["top"].neighborIsValid):
-            if (tile.id == 1):
-                tile.log("Top messages to send: " + str(state.sides["top"].messagesToSend))
+            tile.log("Top messages to send: " + str(state.sides["top"].messagesToSend))
             bit = state.sides["top"].getNextBitToSend()
-            if (tile.id == 1):
-                tile.log("Top sending bit: " + str(bit))
+            tile.log("Top sending bit: " + str(bit))
             if bit > 0:
                 firmware.sendPulse(tile.top)
         if (state.sides["bottom"].neighborIsValid):
+            tile.log("Bottom messages to send: " + str(state.sides["bottom"].messagesToSend))
             bit = state.sides["bottom"].getNextBitToSend()
+            tile.log("Bottom sending bit: " + str(bit))
             if bit > 0:
                 firmware.sendPulse(tile.bottom)
         if (state.sides["left"].neighborIsValid):
+            tile.log("Left messages to send: " + str(state.sides["left"].messagesToSend))
             bit = state.sides["left"].getNextBitToSend()
+            tile.log("Left sending bit: " + str(bit))
             if bit > 0:
                 firmware.sendPulse(tile.left)
         if (state.sides["right"].neighborIsValid):
+            tile.log("Right messages to send: " + str(state.sides["right"].messagesToSend))
             bit = state.sides["right"].getNextBitToSend()
+            tile.log("Right sending bit: " + str(bit))
             if bit > 0:
                 firmware.sendPulse(tile.right)
 
@@ -274,5 +277,13 @@ def loop(state, tile):
         state.tile_state.reportedTopology = True
         tile.log("Sending topology to parent")
         state.sides[state.tile_state.parentName].enqueueTopology(state.topology)
+        state.tile_state.tileState = firmware.TileState.SENDING_TOPOLOGY
+    
+    if (state.tile_state.tileState == firmware.TileState.SENDING_TOPOLOGY):
+        # Check if tile finished sending topology
+        if (len(state.sides[state.tile_state.parentName].messagesToSend) == 0 or state.sides[state.tile_state.parentName].messagesToSend[0] == firmware.AWAKE_MESSAGE):
+            tile.log("Done sending topology")
+            resetTile(state, tile)
+            tile.sleep()
     
     delayMicros(CLOCK_PERIOD - (micros() - curr_time)) # Delay long enough for next clock cycle

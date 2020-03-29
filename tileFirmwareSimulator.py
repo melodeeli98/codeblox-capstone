@@ -2,6 +2,7 @@ import time
 import threading
 import time
 import random
+import firmware
 import slaveFirmware
 import masterFirmware
 from arduino import micros, delayMicros
@@ -27,7 +28,7 @@ syntax_map = {
     "output": 7
 }
 
-TIMEOUT = 100000000 # 100 seconds
+#TIMEOUT = firmware.CLOCK_PERIOD * 1000 # 0.2 s * 1000 = 100 seconds
 
 curr_id = 0
 
@@ -49,12 +50,8 @@ class EmbeddedCode (threading.Thread):
     def kill(self):
         self.time_to_exit = True
 
-    def waitUntilDone(self, timeout):
-        timeoutTime = micros() + timeout
+    def waitUntilDone(self):
         while not self.ready_to_report:
-            if (micros() > timeoutTime):
-                raise Exception("Timeout while waiting for master response.")
-                self.kill()
             time.sleep(0.000000001)
 
     def getTiles(self):
@@ -76,6 +73,14 @@ class Side:
         self.data_in = other.data_out
         other.data_in = self.data_out
         assert self.is_sender != other.is_sender
+
+    def disconnect(self):
+        other = self.neighbor
+        if (other != None):
+            other.neighbor = None
+            other.data_in = 0
+            self.neighbor = None
+            self.data_in = 0
 
     def registerInterruptHandler(self, handler):
         self.interruptHandler = handler
@@ -130,8 +135,15 @@ class Tile:
     def connectLeft(self, other):
         self.left.connect(other.right)
 
-    def tiles(self, timeout):
-        self.thread.waitUntilDone(timeout)
+    def disconnectAllSides(self):
+        self.top.disconnect()
+        self.left.disconnect()
+        self.bottom.disconnect()
+        self.right.disconnect()
+
+    def tiles(self):
+        delayMicros(10000) # Delay long enough for master tile to reset and no longer have the state of the tiles of the previous button press (if present)
+        self.thread.waitUntilDone()
         return self.thread.getTiles()
 
     def killThread(self):
@@ -150,32 +162,14 @@ class Tile:
     def play(self):
         self.playHandler()
 
+def disconnectAllTiles(tiles):
+    for tile in tiles:
+        tile.disconnectAllSides()
+
 def encodingToSyntax(encoding):
     return list(syntax_map.keys())[list(syntax_map.values()).index(encoding)]
 
-def basicTest1():
-    """
-    MA
-    IF
-    """
-    print("############## Basic Test 1 ##############")
-
-    master_tile = Tile("none", is_master=True)
-    if_tile = Tile("if")
-
-    tiles_list = [master_tile, if_tile]
-
-    master_tile.connectBottom(if_tile)
-
-    expected_tiles = [
-        ["if"]
-    ]
-
-    master_tile.play()
-
-    time.sleep(1)
-
-    actual_tiles = master_tile.tiles(TIMEOUT)
+def tilesMatch(expected_tiles, actual_tiles, tiles_list):
     for i in range(len(actual_tiles)):
         for j in range(len(actual_tiles[0])):
             actual_tiles[i][j] = encodingToSyntax(actual_tiles[i][j])
@@ -183,274 +177,185 @@ def basicTest1():
     for r in range(len(expected_tiles)):
         for c in range(len(expected_tiles[r])):
             if r >= len(actual_tiles) or c >= len(actual_tiles[r]) or expected_tiles[r][c] != actual_tiles[r][c]:
-                print("Failure!")
-                print("expected:")
-                print(expected_tiles)
-                print("actual: ")
-                print(actual_tiles)
+                return False
 
-                for tile in tiles_list:
-                    tile.killThread()
-                return
-    
-    print("Pass!")
-    for tile in tiles_list:
-        tile.killThread()
-    
-    print()
+    return True
 
-def basicTest2():
-    """
-    MA
-    IF TR
-    """
-    print("############## Basic Test 2 ##############")
-
-    master_tile = Tile("none", is_master=True)
-    if_tile = Tile("if")
-    true_tile = Tile("true")
-
-    tiles_list = [master_tile, if_tile, true_tile]
-
-    master_tile.connectBottom(if_tile)
-    if_tile.connectRight(true_tile)
-
-    expected_tiles = [
-        ["if", "true"],
-    ]
-
-    master_tile.play()
-
-    time.sleep(1)
-
-    actual_tiles = master_tile.tiles(TIMEOUT)
-    for i in range(len(actual_tiles)):
-        for j in range(len(actual_tiles[0])):
-            actual_tiles[i][j] = encodingToSyntax(actual_tiles[i][j])
-
-    for r in range(len(expected_tiles)):
-        for c in range(len(expected_tiles[r])):
-            if r >= len(actual_tiles) or c >= len(actual_tiles[r]) or expected_tiles[r][c] != actual_tiles[r][c]:
-                print("Failure!")
-                print("expected:")
-                print(expected_tiles)
-                print("actual: ")
-                print(actual_tiles)
-
-                for tile in tiles_list:
-                    tile.killThread()
-                return
-    
-    print("Pass!")
-    for tile in tiles_list:
-        tile.killThread()
-
-    print()
-
-def basicTest3():
-    """
-    MA
-    IF TR
-       OU
-    EL OU
-    """
-    print("############## Basic Test 3 ##############")
-
+class TestTileFirmware(unittest.TestCase):
     master_tile = Tile("none", is_master=True)
     if_tile = Tile("if")
     true_tile = Tile("true")
     output_tile_1 = Tile("output")
     else_tile = Tile("else")
     output_tile_2 = Tile("output")
-
     tiles_list = [master_tile, if_tile, true_tile,
-                  output_tile_1, else_tile, output_tile_2]
-
-    master_tile.connectBottom(if_tile)
-    if_tile.connectRight(true_tile)
-    true_tile.connectBottom(output_tile_1)
-    output_tile_1.connectBottom(output_tile_2)
-    output_tile_2.connectLeft(else_tile)
-
-    expected_tiles = [
-        ["if", "true"],
-        ["none", "output"],
-        ["else", "output"]
-    ]
-
-    master_tile.play()
-
-    time.sleep(1)
-
-    actual_tiles = master_tile.tiles(TIMEOUT)
-    for i in range(len(actual_tiles)):
-        for j in range(len(actual_tiles[0])):
-            actual_tiles[i][j] = encodingToSyntax(actual_tiles[i][j])
-
-    for r in range(len(expected_tiles)):
-        for c in range(len(expected_tiles[r])):
-            if r >= len(actual_tiles) or c >= len(actual_tiles[r]) or expected_tiles[r][c] != actual_tiles[r][c]:
-                print("Failure!")
-                print("expected:")
-                print(expected_tiles)
-                print("actual: ")
-                print(actual_tiles)
-
-                for tile in tiles_list:
-                    tile.killThread()
-                return
+                    output_tile_1, else_tile, output_tile_2]
     
-    print("Pass!")
-    for tile in tiles_list:
-        tile.killThread()
+    def setUp(self): # Occurs before each test
+        disconnectAllTiles(self.tiles_list)
 
-    print()
+    @classmethod
+    def tearDownClass(cls): # Occurs after all tests
+        for tile in TestTileFirmware.tiles_list:
+            tile.killThread()
 
-def noSlaveTest():
-    """
-    MA
-    """
-    print("############## No Slave Test ##############")
+    #@unittest.skip("not testing")
+    def testBasic1(self):
+        """
+        MA
+        IF
+        """
+        print("############## Basic Test 1 ##############")
 
-    master_tile = Tile("none", is_master=True)
+        self.master_tile.connectBottom(self.if_tile)
 
-    class Test(unittest.TestCase):
-        def raisesException(self):
-            self.assertRaises(Exception, master_tile.play())
+        expected_tiles = [
+            ["if"]
+        ]
 
-    test = Test()
-    
-    if (test.raisesException):
-        print("Pass!")
-    else:
-        print("Failure!")
-        print("expected Exception")
-    
-    master_tile.killThread()
-    print()
-
-def playButtonTwiceQuicklyTest():
-    """
-    MA
-    IF TR
-       OU
-    EL OU
-    """
-    print("############## Play Button Twice Quickly Test ##############")
-
-    master_tile = Tile("none", is_master=True)
-    if_tile = Tile("if")
-    true_tile = Tile("true")
-    output_tile_1 = Tile("output")
-    else_tile = Tile("else")
-    output_tile_2 = Tile("output")
-
-    tiles_list = [master_tile, if_tile, true_tile,
-                  output_tile_1, else_tile, output_tile_2]
-
-    master_tile.connectBottom(if_tile)
-    if_tile.connectRight(true_tile)
-    true_tile.connectBottom(output_tile_1)
-    output_tile_1.connectBottom(output_tile_2)
-    output_tile_2.connectLeft(else_tile)
-
-    expected_tiles = [
-        ["if", "true"],
-        ["none", "output"],
-        ["else", "output"]
-    ]
-
-    master_tile.play()
-    master_tile.play()
-
-    time.sleep(1)
-
-    expected_tiles = [
-        ["if", "true"],
-    ]
-
-    for i in range(2):
-        actual_tiles = master_tile.tiles(TIMEOUT)
-        for i in range(len(actual_tiles)):
-            for j in range(len(actual_tiles[0])):
-                actual_tiles[i][j] = encodingToSyntax(actual_tiles[i][j])
-
-        for r in range(len(expected_tiles)):
-            for c in range(len(expected_tiles[r])):
-                if r >= len(actual_tiles) or c >= len(actual_tiles[r]) or expected_tiles[r][c] != actual_tiles[r][c]:
-                    print("Failure!")
-                    print("expected:")
-                    print(expected_tiles)
-                    print("actual: ")
-                    print(actual_tiles)
-
-                    for tile in tiles_list:
-                        tile.killThread()
-                    return
-        delayMicros(1000000) # Delay long enough for master tile to reset and no longer have the state of the tiles of the previous button press
-        
-    print("Pass!")
-    for tile in tiles_list:
-        tile.killThread()
-
-    print()
-
-def playButtonTwiceSlowlyTest():
-    """
-    MA
-    IF TR
-    """
-    print("############## Play Button Twice Slowly Test ##############")
-
-    master_tile = Tile("none", is_master=True)
-    if_tile = Tile("if")
-    true_tile = Tile("true")
-
-    tiles_list = [master_tile, if_tile, true_tile]
-
-    master_tile.connectBottom(if_tile)
-    if_tile.connectRight(true_tile)
-
-    expected_tiles = [
-        ["if", "true"],
-    ]
-
-    for i in range(2):
-        master_tile.play()
+        self.master_tile.play()
         time.sleep(1)
-        actual_tiles = master_tile.tiles(TIMEOUT)
+        actual_tiles = self.master_tile.tiles()
         for i in range(len(actual_tiles)):
             for j in range(len(actual_tiles[0])):
                 actual_tiles[i][j] = encodingToSyntax(actual_tiles[i][j])
+                
+        self.assertEqual(expected_tiles, actual_tiles)
+            
+    #@unittest.skip("not testing")
+    def testBasic2(self):
+        """
+        MA
+        IF TR
+        """
+        print("############## Basic Test 2 ##############")
 
-        for r in range(len(expected_tiles)):
-            for c in range(len(expected_tiles[r])):
-                if r >= len(actual_tiles) or c >= len(actual_tiles[r]) or expected_tiles[r][c] != actual_tiles[r][c]:
-                    print("Failure!")
-                    print("expected:")
-                    print(expected_tiles)
-                    print("actual: ")
-                    print(actual_tiles)
+        self.master_tile.connectBottom(self.if_tile)
+        self.if_tile.connectRight(self.true_tile)
 
-                    for tile in tiles_list:
-                        tile.killThread()
-                    return
-        #delayMicros(2000000)
+        expected_tiles = [
+            ["if", "true"],
+        ]
+
+        self.master_tile.play()
+        time.sleep(1)
+        actual_tiles = self.master_tile.tiles()
+        for i in range(len(actual_tiles)):
+            for j in range(len(actual_tiles[0])):
+                actual_tiles[i][j] = encodingToSyntax(actual_tiles[i][j])
+                
+        self.assertEqual(expected_tiles, actual_tiles)
         
-    print("Pass!")
-    for tile in tiles_list:
-        tile.killThread()
+    #@unittest.skip("not testing")
+    def testBasic3(self):
+        """
+        MA
+        IF TR
+           OU
+        EL OU
+        """
+        print("############## Basic Test 3 ##############")
+        
+        self.master_tile.connectBottom(self.if_tile)
+        self.if_tile.connectRight(self.true_tile)
+        self.true_tile.connectBottom(self.output_tile_1)
+        self.output_tile_1.connectBottom(self.output_tile_2)
+        self.output_tile_2.connectLeft(self.else_tile)
 
-    print()
+        expected_tiles = [
+            ["if", "true"],
+            ["none", "output"],
+            ["else", "output"]
+        ]
 
+        self.master_tile.play()
+        time.sleep(1)
+        actual_tiles = self.master_tile.tiles()
+        for i in range(len(actual_tiles)):
+            for j in range(len(actual_tiles[0])):
+                actual_tiles[i][j] = encodingToSyntax(actual_tiles[i][j])
+                
+        self.assertEqual(expected_tiles, actual_tiles)
+        
+    #@unittest.skip("not testing")
+    def testNoSlaves(self):
+        """
+        MA
+        """
+        print("############## No Slaves Test ##############")
+
+        expected_tiles = [[]]
+
+        self.master_tile.play()
+        time.sleep(1)
+        actual_tiles = self.master_tile.tiles()
+        self.assertEqual(expected_tiles, actual_tiles)
+        
+    #@unittest.skip("not testing")
+    def testPressPlayButtonTwiceQuickly(self):
+        """
+        MA
+        IF TR
+           OU
+        EL OU
+        """
+        print("############## Play Button Twice Quickly Test ##############")
+
+        self.master_tile.connectBottom(self.if_tile)
+        self.if_tile.connectRight(self.true_tile)
+        self.true_tile.connectBottom(self.output_tile_1)
+        self.output_tile_1.connectBottom(self.output_tile_2)
+        self.output_tile_2.connectLeft(self.else_tile)
+
+        expected_tiles = [
+            ["if", "true"],
+            ["none", "output"],
+            ["else", "output"]
+        ]
+
+        self.master_tile.play()
+        self.master_tile.play()
+        time.sleep(1)
+
+        for i in range(2):
+            actual_tiles = self.master_tile.tiles()
+            print("Checking if retrieved tiles match expected tiles")
+            for i in range(len(actual_tiles)):
+                for j in range(len(actual_tiles[0])):
+                    actual_tiles[i][j] = encodingToSyntax(actual_tiles[i][j]) 
+            self.assertEqual(expected_tiles, actual_tiles)
+    
+    #@unittest.skip("not testing")
+    def testPressPlayButtonTwiceSlowly(self):
+        """
+        MA
+        IF TR
+        """
+        print("############## Play Button Twice Slowly Test ##############")
+
+        self.master_tile.connectBottom(self.if_tile)
+        self.if_tile.connectRight(self.true_tile)
+        self.true_tile.connectBottom(self.output_tile_1)
+        self.output_tile_1.connectBottom(self.output_tile_2)
+        self.output_tile_2.connectLeft(self.else_tile)
+
+        expected_tiles = [
+            ["if", "true"],
+            ["none", "output"],
+            ["else", "output"]
+        ]
+
+        for i in range(2):
+            self.master_tile.play()
+            time.sleep(1)
+            actual_tiles = self.master_tile.tiles()
+            for i in range(len(actual_tiles)):
+                for j in range(len(actual_tiles[0])):
+                    actual_tiles[i][j] = encodingToSyntax(actual_tiles[i][j]) 
+            self.assertEqual(expected_tiles, actual_tiles)
+        
 def main():
-    #basicTest1()
-    #basicTest2()
-    #basicTest3()
-    #noSlaveTest()
-    #playButtonTwiceQuicklyTest()
-    #playButtonTwiceSlowlyTest()
-
+    unittest.main()
 
 if __name__ == '__main__':
     main()

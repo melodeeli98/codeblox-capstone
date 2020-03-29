@@ -2,7 +2,7 @@ from enum import Enum
 import util
 from threading import Lock
 
-CLOCK_PERIOD = 100000  # 100000us (0.1 sec)
+CLOCK_PERIOD = 200000  # 200000us (0.2 sec)
 #CLOCK_PERIOD = 2000000  # 2 sec
 MESSAGE_SIZE = 6
 WORD_SIZE = MESSAGE_SIZE + 2
@@ -55,6 +55,7 @@ class TileState(Enum):
     WAITING_FOR_PARENT_REQUEST = 1
     SENDING_PARENT_REQUESTS = 2
     WAITING_FOR_CHILD_TOPOLOGIES = 3
+    SENDING_TOPOLOGY = 4
 
 class SideState(Enum):
     UNCONFIRMED_CHILD_STATUS = 1
@@ -126,8 +127,7 @@ class SideStateMachine:
         return bit
 
     def handlePulseReceived(self, time_received, name):
-        #if (name == " Slave 1 top"):
-            #print(name + " handling pulse read at " + str(time_received))
+        print(name + " handling pulse read at " + str(time_received))
         if (self.messageStartTime == -1):
             # A new message has begun
             #print(name + ": pulse at word cycle 0")

@@ -7,11 +7,11 @@ import util
 import copy
 
 def playHandler(state, tile):
-    delayMicros(3000000) # Delay long enough for slave tiles to initialize / reset
     if (state.tile_state.wakeupTime != -1):
         tile.log("New Play Attempt Queued")
         state.newAttemptQueued = True
     else:
+        resetTile(state, tile)
         tile.wakeUp()
         state.tile_state.wakeupTime = micros()
         tile.log("Play!")
@@ -29,7 +29,6 @@ def sideInterruptHandler(state, tile, dataHigh, sideName):
 
 def resetTile(state, tile):
     tile.log("resetting tile")
-    delayMicros(TIMEOUT) # Delay long enough for neighboring tile to time out
     init(state, tile)
 
 def init(state, tile):
@@ -84,7 +83,7 @@ def processMessage(state, tile, sideName):
         
         elif (state.sides[sideName].sideState == firmware.SideState.EXPECTING_NUM_TILES):
             if ([message] == firmware.AWAKE_MESSAGE):
-                tile.log(sideName + " received awake")
+                #tile.log(sideName + " received awake")
                 return
 
             numTiles = util.binaryListToUnsignedInt(message[1:-2])
@@ -121,32 +120,27 @@ def processMessage(state, tile, sideName):
                 state.sides[sideName].sideState = firmware.SideState.FINISHED_SENDING_TOPOLOGY
                 state.topology = stripTopology(state.sides[sideName].neighborTopology)
                 
-                # Ready to report topology
-                tile.log("ready to report topology")
-                state.ready_to_report = True
-                if (state.newAttemptQueued):
-                    resetTile(state, tile)
-                    playHandler(state, tile)
-                else:
-                    resetTile(state, tile)
+                reportTopology(state, tile, sideName)
                 return
         
         if ([message] == firmware.AWAKE_MESSAGE):
-            tile.log(sideName + " received awake")
+            #tile.log(sideName + " received awake")
             return
 
         else:
             tile.log(sideName + " received invalid message " + str(message))
             state.sides[sideName].neighborIsValid = False
 
-def handleBottomTileDied(state, tile):
+def reportTopology(state, tile, sideName):
+    # Ready to report topology
+    tile.log("ready to report topology")
+    state.ready_to_report = True
+    state.sides[sideName].neighborIsValid = False
+    state.tile_state.wakeupTime = -1
+    # Do not reset completely, because simulator needs to retrieve tiles
     if (state.newAttemptQueued):
-        state.newAttemptQueued = False
-        resetTile(state, tile)
+        delayMicros(1000) # Delay long enough for simulator to retrieve tiles
         playHandler(state, tile)
-    else:
-        resetTile(state, tile)
-        tile.sleep()
 
 def loop(state, tile):
     if (state.tile_state.wakeupTime != -1):
@@ -155,14 +149,14 @@ def loop(state, tile):
         bottomSideState = state.sides["bottom"]
         if (not bottomSideState.neighborIsValid):
             tile.log("Bottom died due to error")
-            handleBottomTileDied(state, tile)
+            reportTopology(state, tile, "bottom")
             return
         else:
             now = micros()
             if ((bottomSideState.neighborLastHighTime == -1 and state.tile_state.wakeupTime + (TIMEOUT * 2) < now) or (bottomSideState.neighborLastHighTime != -1 and now - bottomSideState.neighborLastHighTime > TIMEOUT)):
                 # Bottom side died
                 tile.log("Bottom timed out")
-                handleBottomTileDied(state, tile)
+                reportTopology(state, tile, "bottom")
                 return
 
         # Read message
