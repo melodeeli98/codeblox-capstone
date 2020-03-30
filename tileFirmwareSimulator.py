@@ -140,7 +140,8 @@ class Tile:
         self.right.disconnect()
 
     def tiles(self):
-        delayMicros(10000) # Delay long enough for master tile to reset and no longer have the state of the tiles of the previous button press (if present)
+        # Delay long enough for master tile to reset and no longer have the state of the tiles of the previous button press (if present)
+        delayMicros(10000)
         self.thread.waitUntilDone()
         return self.thread.getTiles()
 
@@ -160,12 +161,15 @@ class Tile:
     def play(self):
         self.playHandler()
 
+
 def disconnectAllTiles(tiles):
     for tile in tiles:
         tile.disconnectAllSides()
 
+
 def encodingToSyntax(encoding):
     return list(syntax_map.keys())[list(syntax_map.values()).index(encoding)]
+
 
 def tilesMatch(expected_tiles, actual_tiles, tiles_list):
     for i in range(len(actual_tiles)):
@@ -179,6 +183,7 @@ def tilesMatch(expected_tiles, actual_tiles, tiles_list):
 
     return True
 
+
 class TestTileFirmware(unittest.TestCase):
     master_tile = Tile("none", is_master=True)
     if_tile = Tile("if")
@@ -189,16 +194,16 @@ class TestTileFirmware(unittest.TestCase):
     false_tile = Tile("false")
     loop_tile = Tile("loop")
     tiles_list = [master_tile, if_tile, true_tile, output_tile_1, else_tile, output_tile_2, false_tile, loop_tile]
-    
-    def setUp(self): # Occurs before each test
+
+    def setUp(self):  # Occurs before each test
         disconnectAllTiles(self.tiles_list)
 
     @classmethod
-    def tearDownClass(cls): # Occurs after all tests
+    def tearDownClass(cls):  # Occurs after all tests
         for tile in TestTileFirmware.tiles_list:
             tile.killThread()
 
-    #@unittest.skip("not testing")
+    # @unittest.skip("not testing")
     def testBasic1(self):
         """
         MA
@@ -218,10 +223,10 @@ class TestTileFirmware(unittest.TestCase):
         for i in range(len(actual_tiles)):
             for j in range(len(actual_tiles[0])):
                 actual_tiles[i][j] = encodingToSyntax(actual_tiles[i][j])
-                
+
         self.assertEqual(expected_tiles, actual_tiles)
-            
-    #@unittest.skip("not testing")
+
+    # @unittest.skip("not testing")
     def testBasic2(self):
         """
         MA
@@ -242,10 +247,10 @@ class TestTileFirmware(unittest.TestCase):
         for i in range(len(actual_tiles)):
             for j in range(len(actual_tiles[0])):
                 actual_tiles[i][j] = encodingToSyntax(actual_tiles[i][j])
-                
+
         self.assertEqual(expected_tiles, actual_tiles)
-        
-    #@unittest.skip("not testing")
+
+    # @unittest.skip("not testing")
     def testBasic3(self):
         """
         MA
@@ -254,7 +259,7 @@ class TestTileFirmware(unittest.TestCase):
         EL OU
         """
         print("############## Basic Test 3 ##############")
-        
+
         self.master_tile.connectBottom(self.if_tile)
         self.if_tile.connectRight(self.true_tile)
         self.true_tile.connectBottom(self.output_tile_1)
@@ -273,10 +278,10 @@ class TestTileFirmware(unittest.TestCase):
         for i in range(len(actual_tiles)):
             for j in range(len(actual_tiles[0])):
                 actual_tiles[i][j] = encodingToSyntax(actual_tiles[i][j])
-                
+
         self.assertEqual(expected_tiles, actual_tiles)
-        
-    #@unittest.skip("not testing")
+
+    # @unittest.skip("not testing")
     def testNoSlaves(self):
         """
         MA
@@ -289,8 +294,8 @@ class TestTileFirmware(unittest.TestCase):
         time.sleep(1)
         actual_tiles = self.master_tile.tiles()
         self.assertEqual(expected_tiles, actual_tiles)
-        
-    #@unittest.skip("not testing")
+
+    # @unittest.skip("not testing")
     def testPressPlayButtonTwiceQuickly(self):
         """
         MA
@@ -321,10 +326,10 @@ class TestTileFirmware(unittest.TestCase):
             print("Checking if retrieved tiles match expected tiles")
             for i in range(len(actual_tiles)):
                 for j in range(len(actual_tiles[0])):
-                    actual_tiles[i][j] = encodingToSyntax(actual_tiles[i][j]) 
+                    actual_tiles[i][j] = encodingToSyntax(actual_tiles[i][j])
             self.assertEqual(expected_tiles, actual_tiles)
-    
-    #@unittest.skip("not testing")
+
+    # @unittest.skip("not testing")
     def testPressPlayButtonTwiceSlowly(self):
         """
         MA
@@ -350,10 +355,10 @@ class TestTileFirmware(unittest.TestCase):
             actual_tiles = self.master_tile.tiles()
             for i in range(len(actual_tiles)):
                 for j in range(len(actual_tiles[0])):
-                    actual_tiles[i][j] = encodingToSyntax(actual_tiles[i][j]) 
+                    actual_tiles[i][j] = encodingToSyntax(actual_tiles[i][j])
             self.assertEqual(expected_tiles, actual_tiles)
 
-    #@unittest.skip("not testing")
+    # @unittest.skip("not testing")
     def testMultipleChildren(self):
         """
         MA
@@ -361,7 +366,7 @@ class TestTileFirmware(unittest.TestCase):
            OU
         """
         print("############## Multiple Children ##############")
-        
+
         self.master_tile.connectBottom(self.if_tile)
         self.if_tile.connectRight(self.true_tile)
         self.true_tile.connectBottom(self.output_tile_1)
@@ -380,10 +385,10 @@ class TestTileFirmware(unittest.TestCase):
                 actual_tiles[i][j] = encodingToSyntax(actual_tiles[i][j])
 
         print("Actual tiles: " + str(actual_tiles))
-                
+
         self.assertEqual(expected_tiles, actual_tiles)
 
-    #@unittest.skip("not testing")
+    # @unittest.skip("not testing")
     def testMultipleChildrenAndParents1(self):
         """
         MA
@@ -391,7 +396,7 @@ class TestTileFirmware(unittest.TestCase):
         OU LO
         """
         print("############## Multiple Children And Parents 1 ##############")
-        
+
         self.master_tile.connectBottom(self.true_tile)
         self.true_tile.connectBottom(self.output_tile_1)
         self.true_tile.connectRight(self.false_tile)
@@ -411,10 +416,10 @@ class TestTileFirmware(unittest.TestCase):
                 actual_tiles[i][j] = encodingToSyntax(actual_tiles[i][j])
 
         print("Actual tiles: " + str(actual_tiles))
-                
+
         self.assertEqual(expected_tiles, actual_tiles)
 
-    #@unittest.skip("not testing")
+    # @unittest.skip("not testing")
     def testMultipleChildrenAndParents2(self):
         """
         MA
@@ -423,7 +428,7 @@ class TestTileFirmware(unittest.TestCase):
         EL OU
         """
         print("############## Multiple Children And Parents 2 ##############")
-        
+
         self.master_tile.connectBottom(self.if_tile)
         self.if_tile.connectRight(self.true_tile)
         self.true_tile.connectBottom(self.output_tile_1)
@@ -447,11 +452,82 @@ class TestTileFirmware(unittest.TestCase):
                 actual_tiles[i][j] = encodingToSyntax(actual_tiles[i][j])
 
         print("Actual tiles: " + str(actual_tiles))
-                
+
         self.assertEqual(expected_tiles, actual_tiles)
-        
+
+    # @unittest.skip("not testing")
+    def testWrapAroundMaster1(self):
+        """
+        FA LO MA
+        OU    IF  
+        EL OU TR
+
+        """
+        print("############## Wrap Around Master 1 ##############")
+
+        self.master_tile.connectBottom(self.if_tile)
+        self.if_tile.connectBottom(self.true_tile)
+        self.true_tile.connectLeft(self.output_tile_1)
+        self.output_tile_1.connectLeft(self.else_tile)
+        self.else_tile.connectTop(self.output_tile_2)
+        self.output_tile_2.connectTop(self.false_tile)
+        self.false_tile.connectRight(self.loop_tile)
+
+        expected_tiles = [
+            ["false", "loop", "none"],
+            ["output", "none", "if"],
+            ["else", "output", "true"]
+        ]
+
+        self.master_tile.play()
+        time.sleep(1)
+        actual_tiles = self.master_tile.tiles()
+        for i in range(len(actual_tiles)):
+            for j in range(len(actual_tiles[0])):
+                actual_tiles[i][j] = encodingToSyntax(actual_tiles[i][j])
+
+        print("Actual tiles: " + str(actual_tiles))
+
+        self.assertEqual(expected_tiles, actual_tiles)
+
+    # @unittest.skip("not testing")
+    def testWrapAroundMaster2(self):
+        """
+        EL OU FA
+        OU MA LO
+        TR IF
+        """
+        print("############## Wrap Around Master 2 ##############")
+
+        self.master_tile.connectBottom(self.if_tile)
+        self.if_tile.connectLeft(self.true_tile)
+        self.true_tile.connectTop(self.output_tile_1)
+        self.output_tile_1.connectTop(self.else_tile)
+        self.else_tile.connectRight(self.output_tile_2)
+        self.output_tile_2.connectRight(self.false_tile)
+        self.false_tile.connectBottom(self.loop_tile)
+
+        expected_tiles = [
+            ["else", "output", "false"],
+            ["output", "none", "loop"],
+            ["true", "if", "none"]
+        ]
+
+        self.master_tile.play()
+        time.sleep(1)
+        actual_tiles = self.master_tile.tiles()
+        for i in range(len(actual_tiles)):
+            for j in range(len(actual_tiles[0])):
+                actual_tiles[i][j] = encodingToSyntax(actual_tiles[i][j])
+
+        print("Actual tiles: " + str(actual_tiles))
+
+        self.assertEqual(expected_tiles, actual_tiles)
+
+
 def main():
     unittest.main()
+
 
 if __name__ == '__main__':
     main()
