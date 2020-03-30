@@ -13,9 +13,12 @@ def playHandler(state, tile):
     else:
         resetTile(state, tile)
         tile.wakeUp()
+        delayMicros(firmware.CLOCK_PERIOD * firmware.WORD_SIZE * 2)
         state.tile_state.wakeupTime = micros()
         tile.log("Play!")
+        tile.log("Sending wake up signal")
         state.sides["bottom"].enqueueMessage(Message(False, firmware.WAKE_UP), "Master")
+        state.sides["bottom"].sentWakeUp = True
         state.sides["bottom"].enqueueMessage(Message(True, firmware.REQUEST_PARENT_TOP), "Master")
         state.tile_state.tileState = firmware.TileState.SENDING_PARENT_REQUESTS
         state.sides["bottom"].sideState = firmware.SideState.UNCONFIRMED_CHILD_STATUS
@@ -24,8 +27,14 @@ def sideInterruptHandler(state, tile, dataHigh, sideName):
     time_received = micros()
     if (state.sides[sideName].neighborIsValid and dataHigh): # Data is high
         #tile.log("received bottom pulse at {}!".format(time_received))
-        state.sides[sideName].neighborLastHighTime = time_received
-        state.sides[sideName].handlePulseReceived(time_received, "Master")
+        if (state.sides[sideName].sentWakeUp):
+            if (not state.sides[sideName].receivedWakeUp):
+                # Side sent wake up signal
+                tile.log(sideName + " got wake up signal")
+                state.sides[sideName].receivedWakeUp = True
+            else:
+                state.sides[sideName].handlePulseReceived(time_received, "Master")
+            state.sides[sideName].neighborLastHighTime = time_received
 
 def resetTile(state, tile):
     tile.log("resetting tile")
@@ -156,6 +165,9 @@ def loop(state, tile):
             if ((bottomSideState.neighborLastHighTime == -1 and state.tile_state.wakeupTime + (TIMEOUT * 2) < now) or (bottomSideState.neighborLastHighTime != -1 and now - bottomSideState.neighborLastHighTime > TIMEOUT)):
                 # Bottom side died
                 tile.log("Bottom timed out")
+                tile.log("neighborlasthightime " + str(bottomSideState.neighborLastHighTime))
+                tile.log("wake up time " + str(state.tile_state.wakeupTime))
+                tile.log("now " + str(now))
                 reportTopology(state, tile, "bottom")
                 return
 
@@ -164,10 +176,11 @@ def loop(state, tile):
             processMessage(state, tile, "bottom")
         
         # Write bit to bottom side
-        tile.log(bottomSideState.messagesToSend)
-        bit = bottomSideState.getNextBitToSend()
-        tile.log("Sending " + str(bit))
-        if bit > 0:
-            firmware.sendPulse(tile.bottom)
+        if (bottomSideState.sentWakeUp):
+            #tile.log(bottomSideState.messagesToSend)
+            bit = bottomSideState.getNextBitToSend()
+            #tile.log("Sending " + str(bit))
+            if bit > 0:
+                firmware.sendPulse(tile.bottom)
 
         delayMicros(CLOCK_PERIOD - (micros() - curr_time)) # Delay long enough for next clock cycle

@@ -28,8 +28,6 @@ syntax_map = {
     "output": 7
 }
 
-#TIMEOUT = firmware.CLOCK_PERIOD * 1000 # 0.2 s * 1000 = 100 seconds
-
 curr_id = 0
 
 
@@ -188,8 +186,9 @@ class TestTileFirmware(unittest.TestCase):
     output_tile_1 = Tile("output")
     else_tile = Tile("else")
     output_tile_2 = Tile("output")
-    tiles_list = [master_tile, if_tile, true_tile,
-                    output_tile_1, else_tile, output_tile_2]
+    false_tile = Tile("false")
+    loop_tile = Tile("loop")
+    tiles_list = [master_tile, if_tile, true_tile, output_tile_1, else_tile, output_tile_2, false_tile, loop_tile]
     
     def setUp(self): # Occurs before each test
         disconnectAllTiles(self.tiles_list)
@@ -353,6 +352,103 @@ class TestTileFirmware(unittest.TestCase):
                 for j in range(len(actual_tiles[0])):
                     actual_tiles[i][j] = encodingToSyntax(actual_tiles[i][j]) 
             self.assertEqual(expected_tiles, actual_tiles)
+
+    #@unittest.skip("not testing")
+    def testMultipleChildren(self):
+        """
+        MA
+        IF TR FA
+           OU
+        """
+        print("############## Multiple Children ##############")
+        
+        self.master_tile.connectBottom(self.if_tile)
+        self.if_tile.connectRight(self.true_tile)
+        self.true_tile.connectBottom(self.output_tile_1)
+        self.true_tile.connectRight(self.false_tile)
+
+        expected_tiles = [
+            ["if", "true", "false"],
+            ["none", "output", "none"]
+        ]
+
+        self.master_tile.play()
+        time.sleep(1)
+        actual_tiles = self.master_tile.tiles()
+        for i in range(len(actual_tiles)):
+            for j in range(len(actual_tiles[0])):
+                actual_tiles[i][j] = encodingToSyntax(actual_tiles[i][j])
+
+        print("Actual tiles: " + str(actual_tiles))
+                
+        self.assertEqual(expected_tiles, actual_tiles)
+
+    #@unittest.skip("not testing")
+    def testMultipleChildrenAndParents1(self):
+        """
+        MA
+        TR FA
+        OU LO
+        """
+        print("############## Multiple Children And Parents 1 ##############")
+        
+        self.master_tile.connectBottom(self.true_tile)
+        self.true_tile.connectBottom(self.output_tile_1)
+        self.true_tile.connectRight(self.false_tile)
+        self.false_tile.connectBottom(self.loop_tile)
+        self.output_tile_1.connectRight(self.loop_tile)
+
+        expected_tiles = [
+            ["true", "false"],
+            ["output", "loop"],
+        ]
+
+        self.master_tile.play()
+        time.sleep(1)
+        actual_tiles = self.master_tile.tiles()
+        for i in range(len(actual_tiles)):
+            for j in range(len(actual_tiles[0])):
+                actual_tiles[i][j] = encodingToSyntax(actual_tiles[i][j])
+
+        print("Actual tiles: " + str(actual_tiles))
+                
+        self.assertEqual(expected_tiles, actual_tiles)
+
+    #@unittest.skip("not testing")
+    def testMultipleChildrenAndParents2(self):
+        """
+        MA
+        IF TR FA
+           OU LO
+        EL OU
+        """
+        print("############## Multiple Children And Parents 2 ##############")
+        
+        self.master_tile.connectBottom(self.if_tile)
+        self.if_tile.connectRight(self.true_tile)
+        self.true_tile.connectBottom(self.output_tile_1)
+        self.true_tile.connectRight(self.false_tile)
+        self.false_tile.connectBottom(self.loop_tile)
+        self.output_tile_1.connectRight(self.loop_tile)
+        self.output_tile_1.connectBottom(self.output_tile_2)
+        self.output_tile_2.connectLeft(self.else_tile)
+
+        expected_tiles = [
+            ["if", "true", "false"],
+            ["none", "output", "loop"],
+            ["else", "output", "none"]
+        ]
+
+        self.master_tile.play()
+        time.sleep(1)
+        actual_tiles = self.master_tile.tiles()
+        for i in range(len(actual_tiles)):
+            for j in range(len(actual_tiles[0])):
+                actual_tiles[i][j] = encodingToSyntax(actual_tiles[i][j])
+
+        print("Actual tiles: " + str(actual_tiles))
+                
+        self.assertEqual(expected_tiles, actual_tiles)
         
 def main():
     unittest.main()

@@ -3,7 +3,6 @@ import util
 from threading import Lock
 
 CLOCK_PERIOD = 200000  # 200000us (0.2 sec)
-#CLOCK_PERIOD = 2000000  # 2 sec
 MESSAGE_SIZE = 6
 WORD_SIZE = MESSAGE_SIZE + 2
 AWAKE_BIT = 0
@@ -27,9 +26,11 @@ YES_MESSAGE = [[1] + [0, 0, 0, 0, 1, 0] + [0] + [1]]
 NO_MESSAGE = [[1] + [0, 0, 0, 0, 0, 1] + [0] + [1]]
 AWAKE_MESSAGE = [[1] + [0, 0, 0, 0, 0, 0] + [1] + [1]]
 
+
 def sendPulse(side):
     side.toggleData()
     side.toggleData()
+
 
 class TileStateMachine:
     def __init__(self):
@@ -41,21 +42,24 @@ class TileStateMachine:
     def reset(self):
         self.__init__()
 
+
 class Message:
     def __init__(self, isResendable, messages):
         #self.isResendable = isResendable
         self.messages = messages
         self.messageIndex = 0
         self.bitIndex = 0
-    
+
     def __repr__(self):
         return "Message: " + str(self.messages)
+
 
 class TileState(Enum):
     WAITING_FOR_PARENT_REQUEST = 1
     SENDING_PARENT_REQUESTS = 2
     WAITING_FOR_CHILD_TOPOLOGIES = 3
     SENDING_TOPOLOGY = 4
+
 
 class SideState(Enum):
     UNCONFIRMED_CHILD_STATUS = 1
@@ -66,9 +70,13 @@ class SideState(Enum):
     EXPECTING_ENCODING = 6
     FINISHED_SENDING_TOPOLOGY = 7
 
+
 class SideStateMachine:
     def __init__(self):
-        self.neighborIsValid = True # if communication failure occurs, tile will shut down all communication with this neighbor even if it's awake.
+
+        # if communication failure occurs, tile will shut down all communication with this neighbor even if it's awake.
+        self.neighborIsValid = True
+
         self.messagesToSend = []
         #self.messageSent = Message(True, [[]])
         self.neighborLastHighTime = -1
@@ -82,10 +90,12 @@ class SideStateMachine:
         self.neighborTopology = []
         self.newPulseTimes = []
         self.sideMutex = Lock()
+        self.sentWakeUp = False
+        self.receivedWakeUp = False
 
     def reset(self):
         self.__init__()
-    
+
     def enqueueTopology(self, topology):
         messages = [0]
         midpoint = len(topology) // 2
@@ -94,9 +104,9 @@ class SideStateMachine:
             for j in range(len(topology)):
                 if (topology[i][j] != 0):
                     numTiles += 1
-                    messages.append([char for char in util.intToSignedBinaryMessage(j - midpoint)]) # x coordinate
-                    messages.append([char for char in util.intToSignedBinaryMessage(i - midpoint)]) # y coordinate
-                    messages.append([char for char in util.intToUnsignedBinaryMessage(topology[i][j])]) # Encoding
+                    messages.append([char for char in util.intToSignedBinaryMessage(j - midpoint)])  # x coordinate
+                    messages.append([char for char in util.intToSignedBinaryMessage(i - midpoint)])  # y coordinate
+                    messages.append([char for char in util.intToUnsignedBinaryMessage(topology[i][j])])  # Encoding
         messages[0] = util.intToUnsignedBinaryMessage(numTiles)
         self.enqueueMessage(Message(True, messages))
 
@@ -105,7 +115,10 @@ class SideStateMachine:
         self.messagesToSend.append(message)
 
     def getNextBitToSend(self):
-        if not self.messagesToSend:
+        if (not self.neighborIsValid):
+            return 0
+
+        if (not self.messagesToSend):
             self.messagesToSend.append(Message(True, AWAKE_MESSAGE))
 
         # Get bit to send
@@ -127,7 +140,8 @@ class SideStateMachine:
         return bit
 
     def handlePulseReceived(self, time_received, name):
-        print(name + " handling pulse read at " + str(time_received))
+        # if (name == " Slave 2 bottom" or name == " Slave 2 right" or name == " Slave 6 left" or name == " Slave 3 top"):
+        #print(name + " handling pulse read at " + str(time_received))
         if (self.messageStartTime == -1):
             # A new message has begun
             #print(name + ": pulse at word cycle 0")
@@ -153,8 +167,8 @@ class SideStateMachine:
                     highBitCount = 0
                     message = self.currBitsRead[1:-2]
                     parity = self.currBitsRead[-2]
-                    #if (name == " Slave 1 top"):
-                        #print(name + ": currBitsRead", self.currBitsRead)
+                    # if (name == " Slave 2 bottom" or name == " Slave 2 right"):
+                    #print(name + ": currBitsRead", self.currBitsRead)
                     for i in range(len(message)):
                         highBitCount += message[i]
                     if (int((highBitCount + parity) % 2) != 1):
@@ -180,5 +194,5 @@ class SideStateMachine:
         for i in range(WORD_SIZE - 1):
             if ((time_received >= messageStartTime + (0.5 + i) * CLOCK_PERIOD) and (time_received < messageStartTime + (1.5 + i) * CLOCK_PERIOD)):
                 return i + 1
-        
+
         return WORD_SIZE
