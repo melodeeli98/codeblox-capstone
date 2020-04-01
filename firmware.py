@@ -1,27 +1,21 @@
 from enum import Enum
-import util
 from threading import Lock
+import util
+
 
 CLOCK_PERIOD = 200000  # 200000us (0.2 sec)
 MESSAGE_SIZE = 6
 WORD_SIZE = MESSAGE_SIZE + 2
 AWAKE_BIT = 0
-MSG_BIT_0 = 1
-MSG_BIT_1 = 2
-MSG_BIT_2 = 3
-MSG_BIT_3 = 4
-MSG_BIT_4 = 5
-MSG_BIT_5 = 6
 PARITY_BIT = 7
 TIMEOUT = CLOCK_PERIOD * WORD_SIZE * 1.1
 
 WAKE_UP = [[1, 0, 0, 0, 0, 0, 0]]
-
 REQUEST_PARENT_TOP = [[1] + [1, 0, 0, 0, 0, 1] + [1] + [1]]
 REQUEST_PARENT_RIGHT = [[1] + [1, 0, 0, 0, 1, 0] + [1] + [1]]
 REQUEST_PARENT_BOTTOM = [[1] + [1, 0, 0, 1, 0, 0] + [1] + [1]]
 REQUEST_PARENT_LEFT = [[1] + [1, 0, 1, 0, 0, 0] + [1] + [1]]
-REQUEST_RESEND_MESSAGE = [[1] + [0, 0, 0, 1, 0, 0] + [0] + [1]]
+REQUEST_RESEND_MESSAGE = [[1] + [0, 0, 0, 1, 0, 0] + [0] + [1]]  # Currently not used.
 YES_MESSAGE = [[1] + [0, 0, 0, 0, 1, 0] + [0] + [1]]
 NO_MESSAGE = [[1] + [0, 0, 0, 0, 0, 1] + [0] + [1]]
 AWAKE_MESSAGE = [[1] + [0, 0, 0, 0, 0, 0] + [1] + [1]]
@@ -32,20 +26,8 @@ def sendPulse(side):
     side.toggleData()
 
 
-class TileStateMachine:
-    def __init__(self):
-        self.parentName = None
-        self.tileState = TileState.WAITING_FOR_PARENT_REQUEST
-        self.reportedTopology = False
-        self.wakeupTime = -1
-
-    def reset(self):
-        self.__init__()
-
-
 class Message:
-    def __init__(self, isResendable, messages):
-        #self.isResendable = isResendable
+    def __init__(self, messages):
         self.messages = messages
         self.messageIndex = 0
         self.bitIndex = 0
@@ -59,6 +41,14 @@ class TileState(Enum):
     SENDING_PARENT_REQUESTS = 2
     WAITING_FOR_CHILD_TOPOLOGIES = 3
     SENDING_TOPOLOGY = 4
+
+
+class TileStateMachine:
+    def __init__(self):
+        self.parentName = None
+        self.tileState = TileState.WAITING_FOR_PARENT_REQUEST
+        self.reportedTopology = False
+        self.wakeupTime = -1
 
 
 class SideState(Enum):
@@ -77,24 +67,24 @@ class SideStateMachine:
         # if communication failure occurs, tile will shut down all communication with this neighbor even if it's awake.
         self.neighborIsValid = True
 
-        self.messagesToSend = []
-        #self.messageSent = Message(True, [[]])
+        self.sideState = SideState.UNCONFIRMED_CHILD_STATUS
         self.neighborLastHighTime = -1
+        self.sentWakeUp = False
+        self.receivedWakeUp = False
+        self.messagesToSend = []
+        self.newPulseTimes = []
+        self.sideMutex = Lock()
         self.messageStartTime = -1
         self.currBitsRead = []
         self.messagesRead = []
-        self.sideState = SideState.UNCONFIRMED_CHILD_STATUS
         self.numTileInfoExpected = 0
         self.currXCoordinate = -1
         self.currYCoordinate = -1
         self.neighborTopology = []
-        self.newPulseTimes = []
-        self.sideMutex = Lock()
-        self.sentWakeUp = False
-        self.receivedWakeUp = False
 
-    def reset(self):
-        self.__init__()
+    def enqueueMessage(self, message, name=""):
+        #print(name + ": enqueueing " + str(message))
+        self.messagesToSend.append(message)
 
     def enqueueTopology(self, topology):
         messages = [0]
@@ -108,23 +98,18 @@ class SideStateMachine:
                     messages.append([char for char in util.intToSignedBinaryMessage(i - midpoint)])  # y coordinate
                     messages.append([char for char in util.intToUnsignedBinaryMessage(topology[i][j])])  # Encoding
         messages[0] = util.intToUnsignedBinaryMessage(numTiles)
-        self.enqueueMessage(Message(True, messages))
-
-    def enqueueMessage(self, message, name=""):
-        #print(name + ": enqueueing " + str(message))
-        self.messagesToSend.append(message)
+        self.enqueueMessage(Message(messages))
 
     def getNextBitToSend(self):
         if (not self.neighborIsValid):
             return 0
 
         if (not self.messagesToSend):
-            self.messagesToSend.append(Message(True, AWAKE_MESSAGE))
+            self.messagesToSend.append(Message(AWAKE_MESSAGE))
 
         # Get bit to send
         message = self.messagesToSend[0]
         bit = message.messages[message.messageIndex][message.bitIndex]
-        #self.messageSent.messages[-1] += [bit]
 
         # Update indexes
         if (message.bitIndex == len(message.messages[message.messageIndex]) - 1):
@@ -139,8 +124,7 @@ class SideStateMachine:
 
         return bit
 
-    def handlePulseReceived(self, time_received, name):
-        # if (name == " Slave 2 bottom" or name == " Slave 2 right" or name == " Slave 6 left" or name == " Slave 3 top"):
+    def handlePulseReceived(self, time_received, name=""):
         #print(name + " handling pulse read at " + str(time_received))
         if (self.messageStartTime == -1):
             # A new message has begun
@@ -152,11 +136,9 @@ class SideStateMachine:
             #print(name + ": pulse at word cycle", wordCycle)
             if (wordCycle == -1):
                 self.neighborIsValid = False
-                #self.enqueueMessage(Message(True, REQUEST_RESEND_MESSAGE), name)
             elif (wordCycle < len(self.currBitsRead)):
                 # Received multiple pulses within cycle. Request resend.
                 self.neighborIsValid = False
-                #self.enqueueMessage(Message(True, REQUEST_RESEND_MESSAGE), name)
             else:
                 for i in range(len(self.currBitsRead), wordCycle):
                     self.currBitsRead.append(0)
@@ -167,7 +149,6 @@ class SideStateMachine:
                     highBitCount = 0
                     message = self.currBitsRead[1:-2]
                     parity = self.currBitsRead[-2]
-                    # if (name == " Slave 2 bottom" or name == " Slave 2 right"):
                     #print(name + ": currBitsRead", self.currBitsRead)
                     for i in range(len(message)):
                         highBitCount += message[i]
@@ -175,7 +156,6 @@ class SideStateMachine:
                         print(name + ": invalid message from parity")
                         print(name + " currBitsRead", self.currBitsRead)
                         self.neighborIsValid = False
-                        #self.enqueueMessage(Message(True, REQUEST_RESEND_MESSAGE), name)
                     else:
                         self.messagesRead += [self.currBitsRead]
                     self.messageStartTime = -1

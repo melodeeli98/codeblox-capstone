@@ -1,12 +1,10 @@
 import time
 import threading
-import time
-import random
+import unittest
 import firmware
 import slaveFirmware
 import masterFirmware
 from arduino import micros, delayMicros
-import unittest
 
 NONE = 0
 IF = 1
@@ -203,7 +201,7 @@ class TestTileFirmware(unittest.TestCase):
         for tile in TestTileFirmware.tiles_list:
             tile.killThread()
 
-    # @unittest.skip("not testing")
+    @unittest.skip("not testing")
     def testBasic1(self):
         """
         MA
@@ -281,7 +279,7 @@ class TestTileFirmware(unittest.TestCase):
 
         self.assertEqual(expected_tiles, actual_tiles)
 
-    # @unittest.skip("not testing")
+    @unittest.skip("not testing")
     def testNoSlaves(self):
         """
         MA
@@ -295,7 +293,7 @@ class TestTileFirmware(unittest.TestCase):
         actual_tiles = self.master_tile.tiles()
         self.assertEqual(expected_tiles, actual_tiles)
 
-    # @unittest.skip("not testing")
+    @unittest.skip("not testing")
     def testPressPlayButtonTwiceQuickly(self):
         """
         MA
@@ -329,7 +327,7 @@ class TestTileFirmware(unittest.TestCase):
                     actual_tiles[i][j] = encodingToSyntax(actual_tiles[i][j])
             self.assertEqual(expected_tiles, actual_tiles)
 
-    # @unittest.skip("not testing")
+    @unittest.skip("not testing")
     def testPressPlayButtonTwiceSlowly(self):
         """
         MA
@@ -358,14 +356,14 @@ class TestTileFirmware(unittest.TestCase):
                     actual_tiles[i][j] = encodingToSyntax(actual_tiles[i][j])
             self.assertEqual(expected_tiles, actual_tiles)
 
-    # @unittest.skip("not testing")
-    def testMultipleChildren(self):
+    @unittest.skip("not testing")
+    def testMultipleChildren1(self):
         """
         MA
         IF TR FA
            OU
         """
-        print("############## Multiple Children ##############")
+        print("############## Multiple Children 1 ##############")
 
         self.master_tile.connectBottom(self.if_tile)
         self.if_tile.connectRight(self.true_tile)
@@ -389,6 +387,36 @@ class TestTileFirmware(unittest.TestCase):
         self.assertEqual(expected_tiles, actual_tiles)
 
     # @unittest.skip("not testing")
+    def testMultipleChildren2(self):
+        """
+           MA
+        TR IF EL  
+           OU
+        """
+        print("############## Multiple Children 2 ##############")
+
+        self.master_tile.connectBottom(self.if_tile)
+        self.if_tile.connectLeft(self.true_tile)
+        self.if_tile.connectBottom(self.output_tile_1)
+        self.if_tile.connectRight(self.else_tile)
+
+        expected_tiles = [
+            ["true", "if", "else"],
+            ["none", "output", "none"]
+        ]
+
+        self.master_tile.play()
+        time.sleep(1)
+        actual_tiles = self.master_tile.tiles()
+        for i in range(len(actual_tiles)):
+            for j in range(len(actual_tiles[0])):
+                actual_tiles[i][j] = encodingToSyntax(actual_tiles[i][j])
+
+        print("Actual tiles: " + str(actual_tiles))
+
+        self.assertEqual(expected_tiles, actual_tiles)
+
+    @unittest.skip("not testing")
     def testMultipleChildrenAndParents1(self):
         """
         MA
@@ -419,7 +447,7 @@ class TestTileFirmware(unittest.TestCase):
 
         self.assertEqual(expected_tiles, actual_tiles)
 
-    # @unittest.skip("not testing")
+    @unittest.skip("not testing")
     def testMultipleChildrenAndParents2(self):
         """
         MA
@@ -455,7 +483,7 @@ class TestTileFirmware(unittest.TestCase):
 
         self.assertEqual(expected_tiles, actual_tiles)
 
-    # @unittest.skip("not testing")
+    @unittest.skip("not testing")
     def testWrapAroundMaster1(self):
         """
         FA LO MA
@@ -490,7 +518,7 @@ class TestTileFirmware(unittest.TestCase):
 
         self.assertEqual(expected_tiles, actual_tiles)
 
-    # @unittest.skip("not testing")
+    @unittest.skip("not testing")
     def testWrapAroundMaster2(self):
         """
         EL OU FA

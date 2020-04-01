@@ -1,16 +1,14 @@
 import time
-from arduino import micros, delayMicros
 import firmware
 from firmware import SideStateMachine, TileStateMachine, TIMEOUT, CLOCK_PERIOD, Message
+from arduino import micros, delayMicros
 import util
 
 
 def wakeUpOtherSides(tile, state):
     for (name, sideState) in state.sides.items():
         if (not state.sides[name].sentWakeUp):
-            tile.log("waking up side " + name)
-            state.sides[name].enqueueMessage(
-                Message(False, firmware.WAKE_UP), "  Slave " + str(tile.id))
+            state.sides[name].enqueueMessage(Message(firmware.WAKE_UP))
             state.sides[name].sentWakeUp = True
 
 
@@ -21,11 +19,10 @@ def sideInterruptHandler(state, tile, dataHigh, sideName):
         #tile.log("received " + sideName + " pulse at {}!".format(time_received))
         if (not state.sides[sideName].receivedWakeUp):
             # Side sent wake up signal
-            tile.log(sideName + " got wake up signal")
             wakeUpOtherSides(tile, state)
             state.sides[sideName].receivedWakeUp = True
             if (state.tile_state.wakeupTime) == -1:
-                tile.log("woke up")
+                #tile.log("woke up")
                 state.tile_state.wakeupTime = time_received
         else:
             state.sides[sideName].newPulseTimes.append(time_received)
@@ -35,12 +32,12 @@ def sideInterruptHandler(state, tile, dataHigh, sideName):
 
 
 def resetTile(state, tile):
-    tile.log("resetting tile")
+    tile.log("Resetting tile")
     init(state, tile)
 
 
 def init(state, tile):
-    tile.log("initializing")
+    tile.log("Initializing tile")
     tile.top.registerInterruptHandler(lambda: sideInterruptHandler(
         state, tile, tile.top.readData(), "top"))
     tile.left.registerInterruptHandler(lambda: sideInterruptHandler(
@@ -72,7 +69,7 @@ def combineTopologies(tile, top1, top2):
                         raise Exception("Conflicting child topologies.")
                     result[i + midpointDifference][j +
                                                    midpointDifference] = shorter_top[i][j]
-    tile.log("topology is now " + str(result))
+    #tile.log("Topology is now " + str(result))
     return result
 
 
@@ -92,15 +89,13 @@ def adjustSideNames(state, sideName, parentSideName):
 
 
 def processRequestParentMessage(state, tile, sideName, parentSideName):
-    tile.log(sideName + " received request parent " + parentSideName)
+    #tile.log(sideName + " received request parent " + parentSideName)
     if (state.tile_state.tileState != firmware.TileState.WAITING_FOR_PARENT_REQUEST):
         # Tile already has a parent
-        state.sides[sideName].enqueueMessage(
-            Message(True, firmware.NO_MESSAGE), "  Slave " + str(tile.id))
+        state.sides[sideName].enqueueMessage(Message(firmware.NO_MESSAGE))
         return
     # Say yes to parent
-    state.sides[sideName].enqueueMessage(
-        Message(True, firmware.YES_MESSAGE), "  Slave " + str(tile.id))
+    state.sides[sideName].enqueueMessage(Message(firmware.YES_MESSAGE))
     # Adjust side names if necessary
     adjustSideNames(state, sideName, parentSideName)
     state.tile_state.parentName = parentSideName
@@ -117,8 +112,7 @@ def processRequestParentMessage(state, tile, sideName, parentSideName):
                 requestParentMessage = firmware.REQUEST_PARENT_TOP
             else:  # left
                 requestParentMessage = firmware.REQUEST_PARENT_RIGHT
-            state.sides[name].enqueueMessage(
-                Message(True, requestParentMessage), "  Slave " + str(tile.id))
+            state.sides[name].enqueueMessage(Message(requestParentMessage))
 
 
 def processMessage(state, tile, sideName, message):
@@ -128,7 +122,7 @@ def processMessage(state, tile, sideName, message):
             return
 
         numTiles = util.binaryListToUnsignedInt(message[1:-2])
-        tile.log(sideName + " received numTiles: " + str(numTiles))
+        #tile.log(sideName + " received numTiles: " + str(numTiles))
         state.sides[sideName].numTileInfoExpected = numTiles
         state.sides[sideName].neighborTopology = [
             [0 for i in range(numTiles * 2 + 1)] for j in range(numTiles * 2 + 1)]
@@ -138,19 +132,19 @@ def processMessage(state, tile, sideName, message):
         return
     elif (state.sides[sideName].sideState == firmware.SideState.EXPECTING_X_COORDINATE):
         xCoordinate = util.binaryListToSignedInt(message[1:-2])
-        tile.log(sideName + " received xCoordinate: " + str(xCoordinate))
+        #tile.log(sideName + " received xCoordinate: " + str(xCoordinate))
         state.sides[sideName].currXCoordinate = xCoordinate
         state.sides[sideName].sideState = firmware.SideState.EXPECTING_Y_COORDINATE
         return
     elif (state.sides[sideName].sideState == firmware.SideState.EXPECTING_Y_COORDINATE):
         yCoordinate = util.binaryListToSignedInt(message[1:-2])
-        tile.log(sideName + " received yCoordinate: " + str(yCoordinate))
+        #tile.log(sideName + " received yCoordinate: " + str(yCoordinate))
         state.sides[sideName].currYCoordinate = yCoordinate
         state.sides[sideName].sideState = firmware.SideState.EXPECTING_ENCODING
         return
     elif (state.sides[sideName].sideState == firmware.SideState.EXPECTING_ENCODING):
         encoding = util.binaryListToUnsignedInt(message[1:-2])
-        tile.log(sideName + " received encoding: " + str(encoding))
+        #tile.log(sideName + " received encoding: " + str(encoding))
         midpoint = len(state.sides[sideName].neighborTopology) // 2
         xOffset = 0
         yOffset = 0
@@ -170,7 +164,7 @@ def processMessage(state, tile, sideName, message):
             return
         else:
             state.sides[sideName].sideState = firmware.SideState.FINISHED_SENDING_TOPOLOGY
-            tile.log(sideName + " is no longer valid")
+            #tile.log(sideName + " is no longer valid")
             state.sides[sideName].neighborIsValid = False
             state.topology = combineTopologies(
                 tile, state.sides[sideName].neighborTopology, state.topology)
@@ -203,7 +197,7 @@ def processMessage(state, tile, sideName, message):
         return
 
     elif ([message] == firmware.NO_MESSAGE):
-        tile.log(sideName + " received no")
+        #tile.log(sideName + " received no")
         if ((state.tile_state.tileState != firmware.TileState.SENDING_PARENT_REQUESTS and state.tile_state.tileState != firmware.TileState.WAITING_FOR_CHILD_TOPOLOGIES) or state.tile_state.parentName == sideName):
             tile.log(sideName + " is no longer valid")
             state.sides[sideName].neighborIsValid = False
@@ -274,20 +268,16 @@ def loop(state, tile):
     state.sides["bottom"].sideMutex.acquire()
     if (state.sides["top"].newPulseTimes):
         time_received = state.sides["top"].newPulseTimes.pop(0)
-        state.sides["top"].handlePulseReceived(
-            time_received, " Slave " + str(tile.id) + " " + "top")
+        state.sides["top"].handlePulseReceived(time_received)
     if (state.sides["right"].newPulseTimes):
         time_received = state.sides["right"].newPulseTimes.pop(0)
-        state.sides["right"].handlePulseReceived(
-            time_received, " Slave " + str(tile.id) + " " + "right")
+        state.sides["right"].handlePulseReceived(time_received)
     if (state.sides["left"].newPulseTimes):
         time_received = state.sides["left"].newPulseTimes.pop(0)
-        state.sides["left"].handlePulseReceived(
-            time_received, " Slave " + str(tile.id) + " " + "left")
+        state.sides["left"].handlePulseReceived(time_received)
     if (state.sides["bottom"].newPulseTimes):
         time_received = state.sides["bottom"].newPulseTimes.pop(0)
-        state.sides["bottom"].handlePulseReceived(
-            time_received, " Slave " + str(tile.id) + " " + "bottom")
+        state.sides["bottom"].handlePulseReceived(time_received)
     state.sides["top"].sideMutex.release()
     state.sides["right"].sideMutex.release()
     state.sides["left"].sideMutex.release()
@@ -297,14 +287,11 @@ def loop(state, tile):
     if (state.sides["top"].hasMessage() and state.sides["top"].neighborIsValid):
         processMessage(state, tile, "top", state.sides["top"].getNextMessage())
     elif (state.sides["right"].hasMessage() and state.sides["right"].neighborIsValid):
-        processMessage(state, tile, "right",
-                       state.sides["right"].getNextMessage())
+        processMessage(state, tile, "right", state.sides["right"].getNextMessage())
     elif (state.sides["left"].hasMessage() and state.sides["left"].neighborIsValid):
-        processMessage(state, tile, "left",
-                       state.sides["left"].getNextMessage())
+        processMessage(state, tile, "left", state.sides["left"].getNextMessage())
     elif (state.sides["bottom"].hasMessage() and state.sides["bottom"].neighborIsValid):
-        processMessage(state, tile, "bottom",
-                       state.sides["bottom"].getNextMessage())
+        processMessage(state, tile, "bottom", state.sides["bottom"].getNextMessage())
 
     for (sideName, sideState) in state.sides.items():
         if (sideState.neighborIsValid and sideState.sideState != firmware.SideState.NOT_CHILD and sideState.sideState != firmware.SideState.FINISHED_SENDING_TOPOLOGY):
@@ -317,9 +304,8 @@ def loop(state, tile):
         # All neighbors are either not valid, not child, or done sending topology. Ready to forward topology to parent.
         state.ready_to_report = True
         state.tile_state.reportedTopology = True
-        tile.log("Sending topology to parent")
-        state.sides[state.tile_state.parentName].enqueueTopology(
-            state.topology)
+        # tile.log("Sending topology to parent")
+        state.sides[state.tile_state.parentName].enqueueTopology(state.topology)
         state.tile_state.tileState = firmware.TileState.SENDING_TOPOLOGY
 
     if (state.tile_state.tileState == firmware.TileState.SENDING_TOPOLOGY):
@@ -329,5 +315,5 @@ def loop(state, tile):
             #resetTile(state, tile)
             # tile.sleep()
 
-    # Delay long enough for next clock cycle
+            # Delay long enough for next clock cycle
     delayMicros(CLOCK_PERIOD - (micros() - curr_time))
