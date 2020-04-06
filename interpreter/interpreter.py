@@ -124,7 +124,7 @@ def eval(r, start, end):
         if tilegroup == OPERATOR:
             if e1type != TYPE_NUM or e2type != TYPE_NUM:
                 raise InterpreterError(ERROR_TYPE, (r,functionpos))
-            return (calculateOperator(func,e1,e2, functionpos), TYPE_NUM)
+            return (calculateOperator(func,e1,e2, (r,functionpos)), TYPE_NUM)
         
         elif tilegroup == COMPARATOR:
             if e1type != TYPE_NUM or e2type != TYPE_NUM:
@@ -272,12 +272,19 @@ def runCode(r, indent):
                     curr += 1
 
 
-#blocks = [[14,26,21,1,10,22,1],[41,14,-1,-1,-1,-1,-1]] # x = -10 + 1; print x
-#blocks = [[14,26,1,-1,-1,-1],[13,14,30,9,-1,-1],[-1,41,14,-1,-1,-1],[-1,14,26,14,22,1]]
-#blocks = [[14,26,2,-1],[11,14,26,1],[-1,41,5,-1],[12,-1,-1,-1],[-1,41,6,-1]]
-#blocks = [[14,26,1,-1,-1,-1],[13,14,30,9,-1,-1],[-1,15,26,14,42,2],[-1,11,15,26,1,-1],[-1,-1,41,14,-1,-1],[-1,14,26,14,22,1]]
-#blocks = [[14,26,1,10,22],[41,14,-1,-1,-1]] # x = 10 + True; error
+# # x = -10 + 1; print x; print x + 25; print x/0
+#blocks = [[14,26,21,1,10,22,1],[41,14,-1,-1,-1,-1,-1], [41,14,22,2,5,-1,-1], [41,14,24,10,-1,-1,-1]] 
+
+# incomplete statement, throws a syntax error
+#blocks = [[14,26,1,10,22],[41,14,-1,-1,-1]] # x = 10 + 
+
+# tries to do 10+True, throws a type error
+#blocks = [[14,26,1,10,22,19],[41,14,-1,-1,-1,-1]] # x = 10 + True 
+
+# prints even numbers from 1 to 10. x = 1; while(x < 10){if x % 2 == 0 then print x; x++}
 blocks = [[14,26,1,-1,-1,-1,-1],[13,14,30,9,-1,-1,-1],[-1,11,14,42,2,26,10],[-1,-1,41,14,-1,-1,-1],[-1,14,26,14,22,1,-1]]
+
+
 rows = len(blocks)
 cols = len(blocks[0])
 #runCode(0,0)
