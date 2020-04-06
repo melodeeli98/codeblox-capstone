@@ -1,13 +1,11 @@
-
-#define __AVR_ATmega328P__
-#include <Arduino.h>
-
 #include <avr/interrupt.h>
 #include <avr/io.h>
 #include <ArduinoSTL.h>
+#include <functional-vlpp.h>
 #include <map>
 #include "codeblox_driver.h"
 using namespace std;
+using namespace vl;
 
 //IR inputs
 //topPin = 4; // External, INT0
@@ -73,10 +71,10 @@ public:
       triggered = true;
     }
   }
-  void toggleDataThen(void (*callback)(void))
+  void toggleDataThen(Func<void()> callback)
   {
     setData(HIGH);
-    waitMicrosThen(timeMicros() + pulseWidth, []() {
+    waitMicrosThen(pulseWidth, [this, callback]() {
       setData(LOW);
       callback();
     });
@@ -176,9 +174,9 @@ void topTrigger()
   sides[Side_Name::top]->trigger();
 }
 
-void rightTrigger()
+void leftTrigger()
 {
-  sides[Side_Name::right]->trigger();
+  sides[Side_Name::left]->trigger();
 }
 
 //bottom Trigger
@@ -187,10 +185,10 @@ ISR(PCINT0_vect)
   sides[Side_Name::bottom]->trigger();
 }
 
-//left Trigger
+//right Trigger
 ISR(PCINT2_vect)
 {
-  sides[Side_Name::left]->trigger();
+  sides[Side_Name::right]->trigger();
 }
 
 void initSides(void (*dataCallback)(enum Side_Name))
@@ -218,7 +216,7 @@ void initSides(void (*dataCallback)(enum Side_Name))
   pinMode(2, INPUT);
   pinMode(3, INPUT);
   attachInterrupt(0, topTrigger, RISING);
-  attachInterrupt(1, rightTrigger, RISING);
+  attachInterrupt(1, leftTrigger, RISING);
   sei();
 }
 
@@ -235,12 +233,12 @@ void flipTile()
   flipped = !flipped;
 }
 
-void sendPulseThen(Side_Name side, void (*callback)(void))
+void sendPulseThen(Side_Name side, Func<void()> callback)
 {
-  Side_Name s = side;
   if (flipped)
   {
     side = opposite(side);
   }
   sides[side]->toggleDataThen(callback);
 }
+

@@ -4,7 +4,9 @@
       "name": "Linux",
       "includePath": [
         "${workspaceFolder}/**",
-        "/home/ermay12/Arduino/libraries/**",
+        "/home/ermay12/Arduino/libraries/ArduinoSTL/**",
+        "/home/ermay12/Arduino/libraries/Functional-Vlpp/**",
+        "/home/ermay12/Arduino/libraries/LowPower/**",
         "/home/ermay12/classes/capstone/arduino-1.6.13/hardware/arduino/avr/cores/arduino/**",
         "/home/ermay12/classes/capstone/arduino-1.6.13/hardware/tools/avr/avr/include/**",
         "/home/ermay12/classes/capstone/arduino-1.6.13/hardware/arduino/avr/variants/standard/**"

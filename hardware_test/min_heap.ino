@@ -1,7 +1,8 @@
-
 #include "min_heap.h"
 #include <ArduinoSTL.h>
+#include <functional-vlpp.h>
 using namespace std;
+using namespace vl;
 
 template <typename K, typename V>
 int MinHeap<K, V>::PARENT(int i)
@@ -37,10 +38,10 @@ void MinHeap<K, V>::heapify_down(int i)
 
   // compare A[i] with its left and right child
   // and find smallest value
-  if (left < size() && *A[left] < *A[i])
+  if (left < (int) size() && *A[left] < *A[i])
     smallest = left;
 
-  if (right < size() && *A[right] < *A[smallest])
+  if (right < (int) size() && *A[right] < *A[smallest])
     smallest = right;
 
   // swap with child having lesser value and

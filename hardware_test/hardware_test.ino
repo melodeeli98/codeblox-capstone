@@ -1,12 +1,6 @@
-
-#define __AVR_ATmega328P__
-#include <Arduino.h>
-
 #include "codeblox_driver.h"
-
-#define NEW_STATIC(type, name, value) \
-  static type name;                   \
-  name = value
+#include <functional-vlpp.h>
+using namespace vl;
 
 void dataTriggered(Side_Name s)
 {
@@ -27,19 +21,12 @@ void dataTriggered(Side_Name s)
   }
 }
 
-void setup()
-{
-  initDriver(dataTriggered);
-}
-
-int sensor = 20;
-
 void processSerialMessage(String message)
 {
   if (message == "sleep")
   {
     serialLog("Going to sleep");
-    waitMicrosThen(10000UL, []() {
+    waitMicrosThen(1000000UL, []() {
       goToSleepThen([]() {
         serialLog("I'm awake!");
       });
@@ -52,20 +39,31 @@ void processSerialMessage(String message)
       serialLog("sent toggle");
     });
   }
-  else if (message = "read")
+  else if (message == "read")
   {
-    NEW_STATIC(int, sensor, 0);
-    static void (*afterRead)(int) = [](int value) {
+    static int sensor = 0;
+    sensor = 0;
+    static Func<void(int)> afterRead = [](int value) {
       serialLog(String("Sensor ") + String(sensor) + String(": ") + String(value));
       sensor++;
       if (sensor < numReflectiveSensors)
       {
-        readReflectiveSensorRawThen(sensor, afterRead);
+        waitMicrosThen(1000000UL, []() {
+          readReflectiveSensorRawThen(sensor, afterRead);
+        });
       }
     };
     readReflectiveSensorRawThen(sensor, afterRead);
   }
 }
+
+
+void setup()
+{
+  initDriver(dataTriggered);
+  serialLog("Starting up!");
+}
+
 
 void loop()
 {

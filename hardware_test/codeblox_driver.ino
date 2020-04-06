@@ -1,20 +1,15 @@
-#define UBRR0H
-#define __AVR__
-#define __AVR_ATmega328P__
-#include <Arduino.h>
-
 #include "LowPower.h"
 #include "codeblox_driver.h"
 #include <ArduinoSTL.h>
+#include <functional-vlpp.h>
 #include <list>
 #include "min_heap.h"
+#include "side.h"
 #include <avr/io.h>
 using namespace std;
+using namespace vl;
 
 void resetClock();
-
-//Reflective Sensor Output
-// PortB 7
 
 void initDriver(void (*callback)(Side_Name))
 {
@@ -32,10 +27,12 @@ void initDriver(void (*callback)(Side_Name))
   initSides(callback);
 }
 
-void (*wakeupCallback)(void) = NULL;
-void goToSleepThen(void (*callback)(void))
+Func<void()> wakeupCallback;
+bool timeToSleep = false;
+void goToSleepThen(Func<void()> callback)
 {
   wakeupCallback = callback;
+  timeToSleep = true;
 }
 
 //incoming
@@ -44,7 +41,7 @@ list<String> receivedMessages;
 //outgoing
 list<String> messagesToSend;
 
-static MinHeap<unsigned long, void (*)()> eventHeap;
+MinHeap<unsigned long, Func<void()>> eventHeap;
 
 void updateDriver()
 {
@@ -73,11 +70,12 @@ void updateDriver()
     }
   }
 
-  if (wakeupCallback != NULL)
+  if (timeToSleep)
   {
     LowPower.powerDown(SLEEP_FOREVER, ADC_OFF, BOD_OFF);
-    void (*callback)(void) = wakeupCallback;
-    wakeupCallback = NULL;
+    Func<void()> callback = wakeupCallback;
+    timeToSleep = false;
+    wakeupCallback = [](){};
     resetClock();
     callback();
   }
@@ -113,37 +111,27 @@ int readReflectiveSensor(int sensor)
 const unsigned long sensorLoadTime = 1000UL;
 const int sensorThreshold = 380;
 
-void readReflectiveSensorsThen(void (*callback)(unsigned int))
+void readReflectiveSensorsThen(Func<void(unsigned int)> callback)
 {
-  static void (*static_callback)(unsigned int) = NULL;
-  static_callback = callback;
   PORTB &= ~(1 << PINB7);
-  waitMicrosThen(sensorLoadTime, []() {
+  waitMicrosThen(sensorLoadTime, [callback]() {
     unsigned int value = 0;
     for (int sensor = 0; sensor < numReflectiveSensors; sensor++)
     {
-      value |=
-          (((unsigned int)!(readReflectiveSensor(sensor) <
-                            sensorThreshold))
-           << sensor);
+      value |= (((unsigned int)!(readReflectiveSensor(sensor) < sensorThreshold)) << sensor);
     }
     PORTB |= 1 << PINB7;
-    static_callback(value);
+    callback(value);
   });
 }
 
-void readReflectiveSensorRawThen(int sensor, void (*callback)(int))
+void readReflectiveSensorRawThen(int sensor, Func<void(int)> callback)
 {
-  static void (*static_callback)(int) = NULL;
-  static_callback = callback;
-  static int static_sensor = 0;
-  static_sensor = sensor;
-
-  PORTB &= ~(1 << PINB7);
-  waitMicrosThen(sensorLoadTime, []() {
-    int value = readReflectiveSensor(static_sensor);
+  PORTB &= ~(1 << PINB7); 
+  waitMicrosThen(sensorLoadTime, [sensor, callback]() {
+    int value = readReflectiveSensor(sensor);
     PORTB |= 1 << PINB7;
-    static_callback(value);
+    callback(value);
   });
 }
 
@@ -157,8 +145,7 @@ bool newSerialMessage()
   return !receivedMessages.empty();
 }
 
-String
-getSerialMessage()
+String getSerialMessage()
 {
   String s = receivedMessages.front();
   receivedMessages.pop_front();
@@ -189,7 +176,7 @@ timeMicros()
   return currTime - startTime;
 }
 
-void waitMicrosThen(unsigned long us, void (*callback)(void))
+void waitMicrosThen(unsigned long us, Func<void()> callback)
 {
   eventHeap.push(us + timeMicros(), callback);
 }
@@ -207,5 +194,5 @@ void enableInterrupts()
 
 bool interruptsEnabled()
 {
-  return interruptDepth > 0;
+  return interruptDepth == 0;
 }
