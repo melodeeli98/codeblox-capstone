@@ -14,6 +14,7 @@ cols = 0
 curstate = STATE_NONE
 
 vars = [0,0,0,0,0]
+outputFile = 0
 
 
 def getTileCode(r, c):
@@ -156,7 +157,6 @@ def handleIf(r, c):
     exitPos = findExitCondition(r+1,c)
     (isValid,typ) = evalExpression(r,c)
     if typ != TYPE_BOOL:
-        print(isValid, typ)
         raise InterpreterError(ERROR_TYPE, (r,c))
     
     if isValid:
@@ -205,7 +205,8 @@ def handleConditional(tile, r, c):
 def handleCommand(tile, r, c):
     if tile == PRINT_T:
         (val,typ) = evalExpression(r,c+1)
-        print(val)
+        outputFile.write(str(val))
+        outputFile.write("\n")
 
 
 def getVarIndex(tile):
@@ -272,34 +273,38 @@ def runCode(r, indent):
                     curr += 1
 
 
-# # x = -10 + 1; print x; print x + 25; print x/0
-#blocks = [[14,26,21,1,10,22,1],[41,14,-1,-1,-1,-1,-1], [41,14,22,2,5,-1,-1], [41,14,24,10,-1,-1,-1]] 
+def callInterpreter(blocks):
+    global rows, cols 
+    
+    rows = len(blocks)
+    cols = len(blocks[0])
 
-# incomplete statement, throws a syntax error
-#blocks = [[14,26,1,10,22],[41,14,-1,-1,-1]] # x = 10 + 
+    try:
+        runCode(0,0)
+    except InterpreterError as e:
+        if e.code == ERROR_TYPE:
+            outputFile.write("Type error at block "),
+        elif e.code == ERROR_DIVZERO:
+            outputFile.write("Divide by zero error at block "),
+        elif e.code == ERROR_SYNTAX:
+            outputFile.write("Syntax error at block "),
+        elif e.code == ERROR_INDENT:
+            outputFile.write("Indentation error at block "),
+        outputFile.write(str(e.loc))
+        outputFile.write("\n")
+        return (True, e.loc)
+        #print(traceback.format_exc())
+    else:
+        outputFile.write("All good!\n")
+        return (False, (0,0))
 
-# tries to do 10+True, throws a type error
-#blocks = [[14,26,1,10,22,19],[41,14,-1,-1,-1,-1]] # x = 10 + True 
 
-# prints even numbers from 1 to 10. x = 1; while(x < 10){if x % 2 == 0 then print x; x++}
-blocks = [[14,26,1,-1,-1,-1,-1],[13,14,30,9,-1,-1,-1],[-1,11,14,42,2,26,10],[-1,-1,41,14,-1,-1,-1],[-1,14,26,14,22,1,-1]]
+def interpret(b):
+    global blocks, outputFile
 
+    blocks = b
+    filename = "interpreter_output.txt"
+    outputFile = open(filename, 'w')
+    (isErr, errLoc) = callInterpreter(blocks)
 
-rows = len(blocks)
-cols = len(blocks[0])
-#runCode(0,0)
-try:
-    runCode(0,0)
-except InterpreterError as e:
-    if e.code == ERROR_TYPE:
-        print("Type error at block "),
-    elif e.code == ERROR_DIVZERO:
-        print("Divide by zero error at block "),
-    elif e.code == ERROR_SYNTAX:
-        print("Syntax error at block "),
-    elif e.code == ERROR_INDENT:
-        print("Indentation error at block "),
-    print(e.loc)
-    #print(traceback.format_exc())
-else:
-    print("All good!")
+    return (filename, isErr, errLoc)

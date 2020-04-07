@@ -74,3 +74,53 @@ def tileToNum(tilecode):
         ZERO_T          : 0
     }
     return switcher.get(tilecode, -1)
+
+def tileToString(tilecode):
+    switcher = {
+        ONE_T           : "1",
+        TWO_T           : "2",
+        THREE_T         : "3",
+        FOUR_T          : "4",
+        FIVE_T          : "5",
+        SIX_T           : "6",
+        SEVEN_T         : "7",
+        EIGHT_T         : "8",
+        NINE_T          : "9",
+        ZERO_T          : "0",
+
+        IF_T            : "if",
+        ELSE_T          : "else",
+        WHILE_T         : "while",
+
+        VAR0_T          : "v0",
+        VAR1_T          : "v1",
+        VAR2_T          : "v2",
+        VAR3_T          : "v3",
+        VAR4_T          : "v4",
+
+        TRUE_T          : "True",
+        FALSE_T         : "False",
+
+        NEGATIVE_T      : "-",
+
+        ADDITION_T      : "+",
+        SUBTRACTION_T   : "-",
+        DIVIDE_T        : "/",
+        MULTIPLY_T      : "*",
+        MOD_T           : "mod",
+
+        AND_T           : "and",
+        OR_T            : "or",
+
+        EQUAL_T         : "=",
+        NOTEQUAL_T      : "!=",
+        LESSTHAN_T      : "<",
+        GREATERTHAN_T   : ">",
+        LESSTHANEQ_T    : "<=",
+        GREATERTHANEQ_T : ">=",
+
+        PRINT_T         : "print",
+
+        NOP_T           : "none"
+    }
+    return switcher.get(tilecode, "none")
