@@ -5,7 +5,7 @@ from interpreter import interpret
 #blocks = [[14,26,21,1,10,22,1],[41,14,-1,-1,-1,-1,-1], [41,14,22,2,5,-1,-1], [41,14,24,10,-1,-1,-1]] 
 
 # incomplete statement, throws a syntax error
-#blocks = [[14,26,1,10,22],[41,14,-1,-1,-1]] # x = 10 + 
+blocks = [[14,26,1,10,22],[41,14,-1,-1,-1]] # x = 10 + 
 
 # tries to do 10+True, throws a type error
 #blocks = [[14,26,1,10,22,19],[41,14,-1,-1,-1,-1]] # x = 10 + True 
@@ -16,4 +16,4 @@ from interpreter import interpret
 #blocks = [[14,26,1,10,22,5],[41,14,-1,-1,-1,-1]]
 
 (filename, isErr, errLoc) = interpret(blocks)
-#draw(blocks, filename, isErr, errLoc)
+draw(blocks, filename, isErr, errLoc)

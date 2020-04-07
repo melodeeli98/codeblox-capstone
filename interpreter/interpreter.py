@@ -293,7 +293,6 @@ def callInterpreter(blocks):
         outputFile.write(str(e.loc))
         outputFile.write("\n")
         return (True, e.loc)
-        #print(traceback.format_exc())
     else:
         outputFile.write("All good!\n")
         return (False, (0,0))
@@ -306,5 +305,6 @@ def interpret(b):
     filename = "interpreter_output.txt"
     outputFile = open(filename, 'w')
     (isErr, errLoc) = callInterpreter(blocks)
+    outputFile.close()
 
     return (filename, isErr, errLoc)
