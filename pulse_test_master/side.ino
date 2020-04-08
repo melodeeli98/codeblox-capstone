@@ -33,7 +33,7 @@ class Side
   void (*dataCallback)(enum Side_Name);
   volatile bool triggered;
   Int_Type intType;
-  const unsigned long pulseWidth = 500UL; //uS
+  //const unsigned long pulseWidth = 500UL; //uS
 public:
   Side(enum Side_Name n, void (*callback)(enum Side_Name))
   {
@@ -241,4 +241,3 @@ void sendPulseThen(Side_Name side, Func<void()> callback)
   }
   sides[side]->toggleDataThen(callback);
 }
-

@@ -6,6 +6,8 @@
 //IR comm stuff
 #include "side.h"
 
+extern unsigned long pulseWidth; // TODO remove me later!
+
 void initDriver(void (*)(enum Side_Name));
 void updateDriver();
 
