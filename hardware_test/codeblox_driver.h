@@ -31,3 +31,4 @@ void goToSleepThen(vl::Func<void()>);
 void serialLog(String s);
 bool newSerialMessage();
 String getSerialMessage();
+

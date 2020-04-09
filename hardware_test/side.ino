@@ -146,6 +146,22 @@ opposite(enum Side_Name side)
   }
 }
 
+String sideToString(Side_Name side){
+  switch (side)
+  {
+  case Side_Name::top:
+    return String("top");
+  case Side_Name::right:
+    return String("right");
+  case Side_Name::bottom:
+    return String("bottom");
+  case Side_Name::left:
+    return String("left");
+  default:
+    return String("idk");
+  }
+}
+
 Side_Name
 sideFromString(String side)
 {
