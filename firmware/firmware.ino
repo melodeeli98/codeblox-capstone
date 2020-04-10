@@ -1,6 +1,7 @@
 #include "codeblox_driver.h"
 #include "message_manager.h"
 #include <ArduinoSTL.h>
+#include <list>
 #include <MemoryFree.h>
 using namespace std;
 
@@ -9,19 +10,14 @@ using namespace std;
 bool asleep = true;
 
 
-void newMessage(Message* message, enum Side_Name side){
+void newMessage(Message message, enum Side_Name side){
   serialLog(sideToString(side));
-  serialLog(message->toString());
-  if(message->type == Message_Type::generic){
+  serialLog(message.toString());
+  if(message.type == Message_Type::generic){
     mm::stop(side);
     serialLog("Received Message!!!");
-    unsigned int value = message->words->back();
-    value &= ~(1<<(word_size-2));
-    serialLog(value);
+    serialLog(message.getData().front());
   }
-  delete message->words;
-  delete message;
-  
 }
 
 void dataTriggered(Side_Name s)

@@ -12,12 +12,12 @@ class MessageManager {
   bool firstWord;
   bool firstBit;
   enum Side_Name side;
-  void (*newMessageCallback)(Message*, enum Side_Name);
+  void (*newMessageCallback)(Message, enum Side_Name);
 
   public:
     list<unsigned int> outgoingWords;
     bool sendingMessages;
-    MessageManager(enum Side_Name _side, void (*_newMessageCallback)(Message*, enum Side_Name)){
+    MessageManager(enum Side_Name _side, void (*_newMessageCallback)(Message, enum Side_Name)){
       side = _side;
       sendingMessages = false;
       newMessageCallback = _newMessageCallback;
@@ -70,7 +70,6 @@ class MessageManager {
         unsigned int word = *it | (1<< (word_size-1));
         outgoingWords.push_back(word);
       }
-      delete message->words;
       delete message;
     }
     void start(){
@@ -132,7 +131,7 @@ class MessageManager {
                 if(incomingWords.size() >= 3){
                   firstWord = false;
                   incomingWords.pop_front();
-                  newMessageCallback(new Message(Message_Type::generic,incomingWords.front()), side);
+                  newMessageCallback(Message(Message_Type::generic,incomingWords.front()), side);
                   incomingWords.pop_front();
                 }
                 break;
@@ -161,7 +160,7 @@ class MessageManager {
         outgoingWords.clear();
         incomingWords.clear();
         sendingMessages = false;
-        newMessageCallback(new Message(Message_Type::stop), side);
+        newMessageCallback(Message(Message_Type::stop), side);
       }
     }
 };
@@ -187,7 +186,7 @@ class MessageManager * getMessageManager(enum Side_Name side){
 }
 
 namespace mm{
-  void init(void (*callback)(Message*, enum Side_Name)){
+  void init(void (*callback)(Message, enum Side_Name)){
     topMessageManager = new MessageManager (Side_Name::top, callback);
     rightMessageManager = new MessageManager (Side_Name::right, callback);
     bottomMessageManager = new MessageManager (Side_Name::bottom, callback);

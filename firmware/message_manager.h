@@ -6,7 +6,7 @@
 
 
 const int word_size = 10;
-const long clock_period = 1000000UL; //uS
+const long clock_period = 100000UL; //uS
 
 enum Message_Type : unsigned int{ wakeup=0b100000000, alive=0b100000001, generic=0b100000010, stop=0b100000011};
 
@@ -27,7 +27,9 @@ class Message {
         words->push_front(_type);
         type = _type;
       }
-
+      ~Message(){
+        delete words;
+      }
       String toString(){
         String s = "";
         if(type == generic){
@@ -39,10 +41,20 @@ class Message {
         }
         return s;
       }
+
+      std::list<unsigned int> getData(){
+        std::list<unsigned int>::iterator it = words->begin();
+        it++;
+        std::list<unsigned int> data;
+        for (; it != words->end(); it++){
+          data.push_back((*it) &  (~(1<<(word_size-2))));
+        }
+        return data;
+      }
 };
 
 namespace mm {
-  void init(void (*)(Message*, enum Side_Name));
+  void init(void (*)(Message, enum Side_Name));
   void wakeup();
   void newBit(enum Side_Name);
   void stop(enum Side_Name);
