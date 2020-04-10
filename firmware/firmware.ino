@@ -17,17 +17,8 @@ void newMessage(Message message, enum Side_Name side){
     mm::stop(side);
     serialLog("Received Message!!!");
     serialLog(message.getData().front());
-  }
-}
-
-void dataTriggered(Side_Name s)
-{
-  serialLog("data Triggered!");
-  if(asleep){
-    asleep = false;
-    mm::wakeup();
-  }
-  mm::newBit(s);
+    asleep = true;
+  }  
 }
 
 void processSerialMessage(char *message)
@@ -47,7 +38,7 @@ void processSerialMessage(char *message)
 
 void setup()
 {
-  initDriver(dataTriggered);
+  initDriver(mm::newBit);
   listenForSerialMessages(processSerialMessage);
   mm::init(newMessage);
   serialLog("Restarted");
