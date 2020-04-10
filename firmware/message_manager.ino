@@ -211,5 +211,9 @@ namespace mm{
     bottomMessageManager->update();
     leftMessageManager->update();
   }
+
+  void stop(enum Side_Name s){
+    getMessageManager(s)->stop();
+  }
 }
 

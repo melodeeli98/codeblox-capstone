@@ -45,6 +45,7 @@ namespace mm {
   void init(void (*)(Message*, enum Side_Name));
   void wakeup();
   void newBit(enum Side_Name);
+  void stop(enum Side_Name);
   void sendMessage(Message*, enum Side_Name);
   void update();
 }
