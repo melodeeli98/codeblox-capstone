@@ -1,9 +1,7 @@
 #include "codeblox_driver.h"
 #include "message_manager.h"
 #include <ArduinoSTL.h>
-#include <functional-vlpp.h>
 #include <MemoryFree.h>
-using namespace vl;
 using namespace std;
 
 
@@ -20,6 +18,7 @@ void newMessage(Message* message, enum Side_Name side){
 
 void dataTriggered(Side_Name s)
 {
+  serialLog("data Triggered!");
   if(asleep){
     asleep = false;
     mm::wakeup();
@@ -27,14 +26,17 @@ void dataTriggered(Side_Name s)
   mm::newBit(s);
 }
 
-void processSerialMessage(String message)
+void processSerialMessage(char *message)
 {
-  if(message.toInt()){
+  serialLog("freeMemory()=");
+  serialLog(freeMemory());
+  unsigned int v = (unsigned int) String(message).toInt();
+  if(v){
     if(asleep){
       asleep = false;
       mm::wakeup();
     }
-    mm::sendMessage(new Message(Message_Type::generic, (unsigned int) message.toInt()), Side_Name::right);
+    mm::sendMessage(new Message(Message_Type::generic, v), Side_Name::right);
   }
 }
 
@@ -42,25 +44,18 @@ void processSerialMessage(String message)
 void setup()
 {
   initDriver(dataTriggered);
-  serialLog("Starting up!");
-  serialLog("freeMemory()=");
-  serialLog(String(freeMemory()));
+  listenForSerialMessages(processSerialMessage);
   mm::init(newMessage);
+  serialLog("Restarted");
   serialLog("freeMemory()=");
-  serialLog(String(freeMemory()));
-  asleep = true;
+  serialLog(freeMemory());
   
+  asleep = true;
 }
 
 
 void loop()
 {
   updateDriver();
-
-  if (newSerialMessage())
-  {
-    serialLog("freeMemory()=");
-    serialLog(String(freeMemory()));
-    processSerialMessage(getSerialMessage());
-  }
+  mm::update();
 }

@@ -1,11 +1,8 @@
 #include <avr/interrupt.h>
 #include <avr/io.h>
 #include <ArduinoSTL.h>
-#include <functional-vlpp.h>
-#include <map>
 #include "codeblox_driver.h"
 using namespace std;
-using namespace vl;
 
 //IR inputs
 //topPin = 4; // External, INT0
@@ -33,7 +30,7 @@ class Side
   void (*dataCallback)(enum Side_Name);
   volatile bool triggered;
   Int_Type intType;
-  const unsigned long pulseWidth = 500UL; //uS
+  const unsigned long pulseWidth = 50UL; //uS
 public:
   Side(enum Side_Name n, void (*callback)(enum Side_Name))
   {
@@ -71,13 +68,11 @@ public:
       triggered = true;
     }
   }
-  void toggleDataThen(Func<void()> callback)
+  void toggleData()
   {
     setData(HIGH);
-    waitMicrosThen(pulseWidth, [this, callback]() {
-      setData(LOW);
-      callback();
-    });
+    delayMicroseconds(pulseWidth);
+    setData(LOW);
   }
   void setData(int value)
   {
@@ -183,37 +178,54 @@ sideFromString(String side)
   }
 }
 
-std::map<enum Side_Name, Side *> sides;
+
+Side * topSide;
+Side * rightSide;
+Side * bottomSide;
+Side * leftSide;
+
+class Side * getSide(enum Side_Name side){
+  switch(side){
+    case Side_Name::top:
+      return topSide;
+    case Side_Name::right:
+      return rightSide;
+    case Side_Name::bottom:
+      return bottomSide;
+    case Side_Name::left:
+      return leftSide;
+  }
+}
 
 void topTrigger()
 {
-  sides[Side_Name::top]->trigger();
+  topSide->trigger();
 }
 
 void leftTrigger()
 {
-  sides[Side_Name::left]->trigger();
+  leftSide->trigger();
 }
 
 //bottom Trigger
 ISR(PCINT0_vect)
 {
-  sides[Side_Name::bottom]->trigger();
+  bottomSide->trigger();
 }
 
 //right Trigger
 ISR(PCINT2_vect)
 {
-  sides[Side_Name::right]->trigger();
+  rightSide->trigger();
 }
 
 void initSides(void (*dataCallback)(enum Side_Name))
 {
 
-  sides[Side_Name::top] = new Side(Side_Name::top, dataCallback);
-  sides[Side_Name::right] = new Side(Side_Name::right, dataCallback);
-  sides[Side_Name::bottom] = new Side(Side_Name::bottom, dataCallback);
-  sides[Side_Name::left] = new Side(Side_Name::left, dataCallback);
+  topSide = new Side(Side_Name::top, dataCallback);
+  rightSide = new Side(Side_Name::right, dataCallback);
+  bottomSide = new Side(Side_Name::bottom, dataCallback);
+  leftSide = new Side(Side_Name::left, dataCallback);
 
   pinMode(5, OUTPUT);
   pinMode(6, OUTPUT);
@@ -238,10 +250,10 @@ void initSides(void (*dataCallback)(enum Side_Name))
 
 void updateSides()
 {
-  sides[Side_Name::top]->update();
-  sides[Side_Name::right]->update();
-  sides[Side_Name::bottom]->update();
-  sides[Side_Name::left]->update();
+  topSide->update();
+  rightSide->update();
+  bottomSide->update();
+  leftSide->update();
 }
 
 void flipTile()
@@ -249,12 +261,12 @@ void flipTile()
   flipped = !flipped;
 }
 
-void sendPulseThen(Side_Name side, Func<void()> callback)
+void sendPulse(Side_Name side)
 {
   if (flipped)
   {
     side = opposite(side);
   }
-  sides[side]->toggleDataThen(callback);
+  getSide(side)->toggleData();
 }
 

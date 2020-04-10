@@ -1,7 +1,5 @@
 #pragma once
-
-#include <ArduinoSTL.h>
-#include <functional-vlpp.h>
+//#include <functional-vlpp.h>
 
 //IR comm stuff
 #include "side.h"
@@ -9,10 +7,10 @@
 void initDriver(void (*)(enum Side_Name));
 void updateDriver();
 
-//reflective sensor stuff
 const int numReflectiveSensors = 6;
-void readReflectiveSensorsThen(vl::Func<void(unsigned int)>);
-void readReflectiveSensorRawThen(int sensor, vl::Func<void(int)>);
+
+void readReflectiveSensorsLater(unsigned int *);
+void readReflectiveSensorsRawLater(int *, int *, int *, int *, int *, int *);
 
 //fake interrupt disabling/enabling
 void disableInterrupts();
@@ -21,14 +19,24 @@ bool interruptsEnabled();
 
 //timing/scheduling
 unsigned long timeMicros(); //use this instead of micros to avoid overflow
-void waitMicrosThen(unsigned long us, vl::Func<void()>);
+//void waitMicrosThen(unsigned long us, vl::Func<void()>);
 
-void goToSleepThen(vl::Func<void()>);
+void goToSleep();
 
 //void registerPlayHandler(Func<void(void)>);
 
-// debugging functions
-void serialLog(String s);
-bool newSerialMessage();
-String getSerialMessage();
+void listenForSerialMessages(void (*callback)(char *));
+
+size_t serialLog(const __FlashStringHelper * );
+size_t serialLog(const String &s);
+size_t serialLog(const char[]);
+size_t serialLog(char);
+size_t serialLog(unsigned char , int = DEC);
+size_t serialLog(int, int = DEC);
+size_t serialLog(unsigned int, int = DEC);
+size_t serialLog(long, int = DEC);
+size_t serialLog(unsigned long, int = DEC);
+size_t serialLog(double, int = 2);
+size_t serialLog(const Printable& s);
+size_t serialLog(void);
 
