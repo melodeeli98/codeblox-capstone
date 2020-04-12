@@ -1,11 +1,11 @@
 #pragma once
 
-enum Side_Name
+enum Side_Name: unsigned int
 {
-    top,
-    right,
-    bottom,
-    left
+    top = 1,
+    right = 2,
+    bottom = 3,
+    left = 4
 };
 
 enum Side_Name opposite(enum Side_Name);

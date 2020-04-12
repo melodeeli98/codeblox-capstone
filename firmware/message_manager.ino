@@ -9,7 +9,7 @@ class MessageManager {
   list<unsigned int> incomingWords;
   unsigned long lastReceivedBit;
   unsigned long nextTransmissionTime;
-  bool firstWord;
+  bool firstWordReceived;
   bool firstBit;
   enum Side_Name side;
   void (*newMessageCallback)(Message, enum Side_Name);
@@ -74,7 +74,7 @@ class MessageManager {
     }
     void start(){
       sendingMessages = true;
-      firstWord = true;
+      firstWordReceived = false;
       firstBit = true;
       enqueueMessage(new Message(Message_Type::wakeup));
       nextTransmissionTime = timeMicros() + clock_period;
@@ -115,8 +115,8 @@ class MessageManager {
             switch(incomingWords.front()){
               case Message_Type::wakeup:
                 incomingWords.pop_front();
-                if(firstWord){
-                  firstWord = false;
+                if(!firstWordReceived){
+                  firstWordReceived = true;
                 }else{
                   serialLog("sent wakeup after another message");
                   stop();
@@ -124,16 +124,34 @@ class MessageManager {
                 }
                 break;
               case Message_Type::alive:
-                firstWord = false;
+                firstWordReceived = true;
                 incomingWords.pop_front();
                 break;
-              case Message_Type::generic:
+              case Message_Type::parent:
                 if(incomingWords.size() >= 3){
-                  firstWord = false;
+                  firstWordReceived = true;
                   incomingWords.pop_front();
-                  newMessageCallback(Message(Message_Type::generic,incomingWords.front()), side);
+                  newMessageCallback(Message(Message_Type::parent,incomingWords.front()), side);
                   incomingWords.pop_front();
                 }
+                break;
+              case Message_Type::tile:
+                if(incomingWords.size() >= 5){
+                  firstWordReceived = true;
+                  incomingWords.pop_front();
+                  unsigned int x = incomingWords.front();
+                  incomingWords.pop_front();
+                  unsigned int y = incomingWords.front();
+                  incomingWords.pop_front();
+                  unsigned int encoding = incomingWords.front();
+                  incomingWords.pop_front();
+                  newMessageCallback(Message(Message_Type::tile, x, y, encoding), side);
+                }
+                break;
+              case Message_Type::done:
+                firstWordReceived = true;
+                incomingWords.pop_front();
+                newMessageCallback(Message(Message_Type::done), side);
                 break;
               default:
                 serialLog("Invalid message type");
@@ -198,7 +216,7 @@ namespace mm{
     bottomMessageManager->start();
     leftMessageManager->start();
   }
-  void newBit(enum Side_Name s){
+  void newBitCallback(enum Side_Name s){
     getMessageManager(s)->processNewBit();
   }
   void sendMessage(Message* m, enum Side_Name s){

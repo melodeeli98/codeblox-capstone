@@ -32,7 +32,7 @@ void goToSleep(){
 
 void (*newSerialMessageCallback)(char *) = NULL;
 
-void listenForSerialMessages(void (*callback)(char *)){
+void registerSerialMessageCallback(void (*callback)(char *)){
   newSerialMessageCallback = callback;
 }
 
