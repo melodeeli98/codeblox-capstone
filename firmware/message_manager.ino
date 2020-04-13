@@ -201,6 +201,7 @@ class MessageManager * getMessageManager(enum Side_Name side){
     case Side_Name::left:
       return leftMessageManager;
   }
+  return NULL;
 }
 
 namespace mm{
@@ -233,4 +234,3 @@ namespace mm{
     getMessageManager(s)->stop();
   }
 }
-

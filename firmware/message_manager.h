@@ -40,14 +40,31 @@ class Message {
         delete words;
       }
 
-      Message * newTileMessage(signed char x, signed char y, unsigned int encoding){
+      static Message * newTileMessage(signed char x, signed char y, unsigned int encoding){
         return new Message(Message_Type::tile, (unsigned int) x, (unsigned int) y, encoding);
       }
 
       String toString(){
         String s = "";
-        if(type == generic){
-          s = "generic: ";
+        switch(type){
+          case tile:
+            s = "tile: ";
+            break;
+          case parent:
+            s = "parent: ";
+            break;
+          case alive:
+            s = "alive";
+            break;
+          case done:
+            s = "done";
+            break;
+          case stop:
+            s = "stop";
+            break;
+          default:
+            s = "unknown message";
+            break;
         }
         for (std::list<unsigned int>::iterator it = words->begin(); it != words->end(); it++){
           s +=  String(*it, BIN);
@@ -75,4 +92,3 @@ namespace mm {
   void sendMessage(Message*, enum Side_Name);
   void update();
 }
-

@@ -195,6 +195,7 @@ class Side * getSide(enum Side_Name side){
     case Side_Name::left:
       return leftSide;
   }
+  return NULL;
 }
 
 void topTrigger()
@@ -269,4 +270,3 @@ void sendPulse(Side_Name side)
   }
   getSide(side)->toggleData();
 }
-
