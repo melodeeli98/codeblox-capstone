@@ -25,7 +25,7 @@ void goToSleep();
 
 //void registerPlayHandler(Func<void(void)>);
 
-void listenForSerialMessages(void (*callback)(char *));
+void registerSerialMessageCallback(void (*callback)(char *));
 
 size_t serialLog(const __FlashStringHelper * );
 size_t serialLog(const String &s);

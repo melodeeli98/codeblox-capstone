@@ -32,7 +32,7 @@ void goToSleep(){
 
 void (*newSerialMessageCallback)(char *) = NULL;
 
-void listenForSerialMessages(void (*callback)(char *)){
+void registerSerialMessageCallback(void (*callback)(char *)){
   newSerialMessageCallback = callback;
 }
 
@@ -79,14 +79,18 @@ void updateDriver(){
   if(readSensorsTime < timeMicros() && readSensors){
     readSensors = false;
     unsigned int value = 0;
+    serialLog("HELLO");
     for (int sensor = 0; sensor < numReflectiveSensors; sensor++)
     {
+      serialLog(readReflectiveSensor(sensor));
       value |= (((unsigned int)!(readReflectiveSensor(sensor) < sensorThreshold)) << sensor);
+      serialLog(value);
     }
     *sensors = value;
     if(!readSensorsRaw){
       PORTB |= 1 << PINB7;
     }
+    serialLog(*sensors);
   }
 
   if(readSensorsRawTime < timeMicros() && readSensorsRaw){
@@ -237,4 +241,3 @@ void enableInterrupts(){
 bool interruptsEnabled(){
   return interruptDepth == 0;
 }
-
