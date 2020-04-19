@@ -1,7 +1,6 @@
 #include "message_manager.h"
 #include "codeblox_driver.h"
 #include <ArduinoSTL.h>
-#include <MemoryFree.h>
 #include <list>
 using namespace std;
 
@@ -25,7 +24,7 @@ class MessageManager {
     void update(){
       if(sendingMessages){
         if((word_size+1)*clock_period < timeMicros() - lastReceivedBit){
-          serialLog("Timeout");
+          //LOG("Timeout");
           stop();
         }
         if(timeMicros() > nextTransmissionTime){
@@ -53,11 +52,11 @@ class MessageManager {
           if(sendHigh){
             sendPulse(side); 
             if(side == Side_Name::right){
-              serialLog("sending high");
+              //LOG("sending high");
             }
           }else{
             if(side == Side_Name::right){
-              serialLog("sending low");
+              //LOG("sending low");
             }
           }
         }
@@ -66,7 +65,7 @@ class MessageManager {
     void enqueueMessage(Message *message){
       for (list<unsigned int>::iterator it = message->words->begin(); it != message->words->end(); it++){
         //precede word with one to track bit to send
-        serialLog(String("enqueing ") + String(*it, BIN));
+        //LOG(String("enqueing ") + String(*it, BIN));
         unsigned int word = *it | (1<< (word_size-1));
         outgoingWords.push_back(word);
       }
@@ -92,7 +91,7 @@ class MessageManager {
         
         if(numBits <= 0){
           //bit sent too soon.  Failure condition
-          serialLog("bit sent too soon");
+          LOG("bit sent too soon");
           stop();
           return;
         }
@@ -104,10 +103,10 @@ class MessageManager {
           while(word >> wordBits){
             wordBits++;
           }
-          serialLog("w+n= " + String(wordBits) + "+" + String(numBits));
+          //LOG("w+n= " + String(wordBits) + "+" + String(numBits));
           if(wordBits + numBits == word_size){
             word <<= (numBits-1);
-            serialLog(word, BIN);
+            //LOG(word, BIN);
             incomingWords.pop_back();
             incomingWords.push_back(word);
             incomingWords.push_back(1);
@@ -118,7 +117,7 @@ class MessageManager {
                 if(!firstWordReceived){
                   firstWordReceived = true;
                 }else{
-                  serialLog("sent wakeup after another message");
+                  LOG("sent wakeup after another message");
                   stop();
                   return;
                 }
@@ -154,19 +153,19 @@ class MessageManager {
                 newMessageCallback(Message(Message_Type::done), side);
                 break;
               default:
-                serialLog("Invalid message type");
+                LOG("Invalid message type");
                 stop();
                 return;
             }
             
           }else if(wordBits + numBits > word_size){
-            serialLog("Message contains too many bits");
+            LOG("Message contains too many bits");
             stop();
             return;
           }else{
-            serialLog("adding to word ");
+            //LOG("adding to word ");
             word = (word << numBits) | 1;
-            serialLog(word, BIN);
+            //LOG(word, BIN);
             incomingWords.pop_back();
             incomingWords.push_back(word);
           }

@@ -1,12 +1,9 @@
 #include "LowPower.h"
 #include "codeblox_driver.h"
 #include <ArduinoSTL.h>
-//#include <functional-vlpp.h>
-//#include "min_heap.h"
 #include "side.h"
 #include <avr/io.h>
 using namespace std;
-//using namespace vl;
 
 void resetClock();
 
@@ -79,18 +76,14 @@ void updateDriver(){
   if(readSensorsTime < timeMicros() && readSensors){
     readSensors = false;
     unsigned int value = 0;
-    serialLog("HELLO");
     for (int sensor = 0; sensor < numReflectiveSensors; sensor++)
     {
-      serialLog(readReflectiveSensor(sensor));
       value |= (((unsigned int)!(readReflectiveSensor(sensor) < sensorThreshold)) << sensor);
-      serialLog(value);
     }
     *sensors = value;
     if(!readSensorsRaw){
       PORTB |= 1 << PINB7;
     }
-    serialLog(*sensors);
   }
 
   if(readSensorsRawTime < timeMicros() && readSensorsRaw){
@@ -105,15 +98,7 @@ void updateDriver(){
       PORTB |= 1 << PINB7;
     }
   }
-  /*
-  while (!eventHeap.empty() && eventHeap.topKey() < timeMicros()){
-    //serialLog("deq event");
-    //serialLog("freeMemory()=");
-    //serialLog(freeMemory());
-    //serialLog(timeMicros());
-    //serialLog(eventHeap.topKey());
-    eventHeap.pop()();
-  }*/
+
 
   //read incoming serial messages
   const unsigned int maxReceivedMessageSize = 20;
@@ -203,13 +188,6 @@ const unsigned long maxTime = ~0UL;
 unsigned long startTime = 0UL;
 
 void resetClock(){
-  /*
-  while (!eventHeap.empty())
-  {
-    eventHeap.pop();
-    serialLog("dropping events on reset?");
-  }
-  */
   startTime = micros();
 }
 
@@ -221,15 +199,7 @@ unsigned long timeMicros(){
   }
   return currTime - startTime;
 }
-/*
-void waitMicrosThen(unsigned long us, Func<void()> callback){
-  eventHeap.push(us + timeMicros(), callback);
-  //serialLog("enq event");
-  //serialLog("freeMemory()=");
-  //serialLog(freeMemory());
-  //serialLog(timeMicros());
-}
-*/
+
 
 int interruptDepth = 0;
 void disableInterrupts(){

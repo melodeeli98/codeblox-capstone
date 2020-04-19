@@ -1,7 +1,6 @@
 #include "codeblox_driver.h"
 #include "message_manager.h"
 #include <ArduinoSTL.h>
-#include <MemoryFree.h>
 #include <list>
 using namespace std;
 
@@ -14,7 +13,7 @@ bool asleep = false;
 
 // Resets tile state between compilations
 void resetTile() {
-  serialLog("resetting");
+  LOG("resetting");
   asleep = true;
   goToSleep();
   asleep = false;
@@ -52,9 +51,9 @@ unsigned int flipEncoding(unsigned int encoding, bool tileFlipped) {
 }
 
 void handleNewMessage(Message message, enum Side_Name side) {
+  LOG(String("NM ") + sideToString(side) + String(": ") + message.toString());
   switch (message.type) {
     case Message_Type::stop:
-      serialLog("received stop");
       numValidSides--;
       if (hasParent && parentSide == side) {
         hasParent = false;
@@ -68,12 +67,11 @@ void handleNewMessage(Message message, enum Side_Name side) {
       }
       break;
     case Message_Type::done:
-      serialLog("received done");
       mm::stop(side);
       break;
     case Message_Type::parent:
       if (hasParent) {
-        serialLog("received parent request but I already have a parent");
+        LOG("already have parent");
         mm::stop(side);
       }
       else {
@@ -82,43 +80,46 @@ void handleNewMessage(Message message, enum Side_Name side) {
 
         // Adjust orientation
         unsigned int requestSide = message.getData().front();
-        serialLog("received parent request from side:");
-        serialLog(requestSide);
+        LOG(String("from ") + sideToString(requestSide));
         if (side != requestSide) {
+          LOG("flipping");
           tileFlipped = true;
         }
 
         // Send parent requests to all other sides
         if (parentSide != Side_Name::top) {
+          LOG("AP top");
           mm::sendMessage(new Message(Message_Type::parent, Side_Name::bottom), Side_Name::top);
         }
         if (parentSide != Side_Name::right) {
+          LOG("AP right");
           mm::sendMessage(new Message(Message_Type::parent, Side_Name::left), Side_Name::right);
         }
         if (parentSide != Side_Name::bottom) {
+          LOG("AP bottom");
           mm::sendMessage(new Message(Message_Type::parent, Side_Name::top), Side_Name::bottom);
         }
         if (parentSide != Side_Name::left) {
+          LOG("AP left");
           mm::sendMessage(new Message(Message_Type::parent, Side_Name::right), Side_Name::left);
         }
       }
       break;
     case Message_Type::tile:
       if (hasParent) {
-        serialLog("received tile message");
         signed char oldX = (signed char) message.getData().front();
         message.getData().pop_front();
         signed char oldY = (signed char) message.getData().front();
         message.getData().pop_front();
         unsigned int encoding = message.getData().front();
-        serialLog("old x: " + String(oldX) + " old y: " + String(oldY) + " encoding: " + String(encoding));
+        LOG("old x: " + String(oldX) + " old y: " + String(oldY) + " encoding: " + String(encoding));
         signed char newX, newY;
         translateCoordinates(&newX, &newY, oldX, oldY, side, tileFlipped);
-        mm::sendMessage(new Message(Message_Type::tile, (unsigned int) newX, (unsigned int) newY, flipEncoding(encoding, tileFlipped)), parentSide);
+        LOG("new x: " + String(newX) + " new y: " + String(newY) + " encoding: " + String(encoding));
+        mm::sendMessage(new Message(Message_Type::tile, (unsigned int) newX, (unsigned int) newY, encoding), parentSide);
       }
       break;
     default:
-      serialLog("invalid message type");
       mm::stop(side);
       break;
   }
@@ -126,24 +127,20 @@ void handleNewMessage(Message message, enum Side_Name side) {
 
 void processSerialMessage(char *message)
 {
-  serialLog("freeMemory()=");
-  serialLog(freeMemory());
   if (asleep) {
     asleep = false;
     mm::wakeup();
   }
   if (String(message) == "read") {
-    serialLog(tileEncoding);
+    LOG(tileEncoding);
   }
 }
 
 void setup() {
   initDriver(mm::newBitCallback);
-  serialLog("initializing");
+  LOG("initializing");
   mm::init(handleNewMessage);
   registerSerialMessageCallback(processSerialMessage);
-  serialLog("freeMemory()=");
-  serialLog(freeMemory());
   resetTile();
 }
 
