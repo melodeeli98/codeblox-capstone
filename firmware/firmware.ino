@@ -9,14 +9,11 @@ Side_Name parentSide;
 bool hasParent = false;
 unsigned int tileEncoding = 0;
 bool tileFlipped = false;
-bool asleep = false;
 
 // Resets tile state between compilations
 void resetTile() {
   LOG("resetting");
-  asleep = true;
   goToSleep();
-  asleep = false;
   mm::wakeup();
   numValidSides = 4;
   hasParent = false;
@@ -43,9 +40,16 @@ void translateCoordinates(signed char * newX, signed char * newY, signed char ol
 }
 
 unsigned int flipEncoding(unsigned int encoding, bool tileFlipped) {
-  unsigned int newEncoding = encoding;
+  unsigned int newEncoding = 0;
   if (tileFlipped) {
-    ; //TODO
+    newEncoding |= (encoding & 0b1) << 5;
+    newEncoding |= (encoding & 0b10) << 3;
+    newEncoding |= (encoding & 0b100) << 1;
+    newEncoding |= (encoding & 0b1000) >> 1;
+    newEncoding |= (encoding & 0b10000) >> 3;
+    newEncoding |= (encoding & 0b100000) >> 5;
+  }else{
+    newEncoding = encoding;
   }
   return newEncoding;
 }
@@ -57,9 +61,13 @@ void handleNewMessage(Message message, enum Side_Name side) {
       numValidSides--;
       if (hasParent && parentSide == side) {
         hasParent = false;
+        mm::stop(Side_Name::top);
+        mm::stop(Side_Name::right);
+        mm::stop(Side_Name::bottom);
+        mm::stop(Side_Name::left);
       }
       if (numValidSides == 1 && hasParent) {
-        mm::sendMessage(Message::newTileMessage(0, 0, tileEncoding), parentSide);
+        mm::sendMessage(Message::newTileMessage(0, 0, flipEncoding(tileEncoding, tileFlipped)), parentSide);
         mm::sendMessage(new Message(Message_Type::done), parentSide);
       }
       if (numValidSides == 0) {
@@ -127,10 +135,6 @@ void handleNewMessage(Message message, enum Side_Name side) {
 
 void processSerialMessage(char *message)
 {
-  if (asleep) {
-    asleep = false;
-    mm::wakeup();
-  }
   if (String(message) == "read") {
     LOG(tileEncoding);
   }
