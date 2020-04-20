@@ -54,7 +54,7 @@ int readReflectiveSensor(int sensor){
 }
 
 const unsigned long sensorLoadTime = 1000UL;
-const int sensorThreshold = 380;
+const int sensorThreshold = 250;
 unsigned int *sensors = NULL;
 int * sensor0 = NULL;
 int * sensor1 = NULL;

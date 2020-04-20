@@ -115,11 +115,12 @@ void handleNewMessage(Message message, enum Side_Name side) {
       break;
     case Message_Type::tile:
       if (hasParent) {
-        signed char oldX = (signed char) message.getData().front();
-        message.getData().pop_front();
-        signed char oldY = (signed char) message.getData().front();
-        message.getData().pop_front();
-        unsigned int encoding = message.getData().front();
+        std::list<unsigned int> data = message.getData();
+        signed char oldX = (signed char) data.front();
+        data.pop_front();
+        signed char oldY = (signed char) data.front();
+        data.pop_front();
+        unsigned int encoding = data.front();
         LOG("old x: " + String(oldX) + " old y: " + String(oldY) + " encoding: " + String(encoding));
         signed char newX, newY;
         translateCoordinates(&newX, &newY, oldX, oldY, side, tileFlipped);

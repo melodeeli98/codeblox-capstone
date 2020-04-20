@@ -42,4 +42,3 @@ size_t serialLog(unsigned long, int = DEC);
 size_t serialLog(double, int = 2);
 size_t serialLog(const Printable& s);
 size_t serialLog(void);
-
