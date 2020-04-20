@@ -67,7 +67,6 @@ void handleNewMessage(Message message, enum Side_Name side) {
         mm::stop(Side_Name::left);
       }
       if (numValidSides == 1 && hasParent) {
-        mm::sendMessage(Message::newTileMessage(0, 0, flipEncoding(tileEncoding, tileFlipped)), parentSide);
         mm::sendMessage(new Message(Message_Type::done), parentSide);
       }
       if (numValidSides == 0) {
@@ -93,6 +92,7 @@ void handleNewMessage(Message message, enum Side_Name side) {
           LOG("flipping");
           tileFlipped = true;
         }
+        mm::sendMessage(Message::newTileMessage(0, 0, flipEncoding(tileEncoding, tileFlipped)), parentSide);
         if(numValidSides > 1){
           // Send parent requests to all other sides
           if (parentSide != Side_Name::top) {
@@ -108,7 +108,6 @@ void handleNewMessage(Message message, enum Side_Name side) {
             mm::sendMessage(new Message(Message_Type::parent, Side_Name::right), Side_Name::left);
           }
         } else {
-          mm::sendMessage(Message::newTileMessage(0, 0, flipEncoding(tileEncoding, tileFlipped)), parentSide);
           mm::sendMessage(new Message(Message_Type::done), parentSide);
         }
       }
