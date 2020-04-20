@@ -4,127 +4,29 @@
 #include <list>
 using namespace std;
 
-int numValidSides = 4;
-Side_Name parentSide;
-bool hasParent = false;
-unsigned int tileEncoding = 0;
-bool tileFlipped = false;
 
-// Resets tile state between compilations
-void resetTile() {
-  LOG("resetting");
-  goToSleep();
-  mm::wakeup();
-  numValidSides = 4;
-  hasParent = false;
-  tileFlipped = false;
-  readReflectiveSensorsLater(&tileEncoding);
-}
-
-void translateCoordinates(signed char * newX, signed char * newY, signed char oldX, signed char oldY, Side_Name side, bool tileFlipped) {
-  *newX = oldX;
-  *newY = oldY;
-  signed char multiplier = 1;
-  if (tileFlipped) {
-    multiplier = -1;
-  }
-  if (side == Side_Name::bottom) {
-    *newY += 1 * multiplier;
-  } else if (side == Side_Name::top) {
-    *newY += -1 * multiplier;
-  } else if (side == Side_Name::left) {
-    *newX += -1 * multiplier;
-  } else if (side == Side_Name::right) {
-    *newX += 1 * multiplier;
-  }
-}
-
-unsigned int flipEncoding(unsigned int encoding, bool tileFlipped) {
-  unsigned int newEncoding = 0;
-  if (tileFlipped) {
-    newEncoding |= (encoding & 0b1) << 5;
-    newEncoding |= (encoding & 0b10) << 3;
-    newEncoding |= (encoding & 0b100) << 1;
-    newEncoding |= (encoding & 0b1000) >> 1;
-    newEncoding |= (encoding & 0b10000) >> 3;
-    newEncoding |= (encoding & 0b100000) >> 5;
-  }else{
-    newEncoding = encoding;
-  }
-  return newEncoding;
-}
 
 void handleNewMessage(Message message, enum Side_Name side) {
   LOG(String("NM ") + sideToString(side) + String(": ") + message.toString());
   switch (message.type) {
     case Message_Type::stop:
-      numValidSides--;
-      if (hasParent && parentSide == side) {
-        hasParent = false;
-        mm::stop(Side_Name::top);
-        mm::stop(Side_Name::right);
-        mm::stop(Side_Name::bottom);
-        mm::stop(Side_Name::left);
-      }
-      if (numValidSides == 1 && hasParent) {
-        mm::sendMessage(Message::newTileMessage(0, 0, flipEncoding(tileEncoding, tileFlipped)), parentSide);
-        mm::sendMessage(new Message(Message_Type::done), parentSide);
-      }
-      if (numValidSides == 0) {
-        resetTile();
-      }
       break;
     case Message_Type::done:
+      LOG("DONE!");
       mm::stop(side);
       break;
     case Message_Type::parent:
-      if (hasParent) {
-        LOG("already have parent");
-        mm::stop(side);
-      }
-      else {
-        hasParent = true;
-        parentSide = side;
-
-        // Adjust orientation
-        unsigned int requestSide = message.getData().front();
-        LOG(String("from ") + sideToString(requestSide));
-        if (side != requestSide) {
-          LOG("flipping");
-          tileFlipped = true;
-        }
-
-        // Send parent requests to all other sides
-        if (parentSide != Side_Name::top) {
-          LOG("AP top");
-          mm::sendMessage(new Message(Message_Type::parent, Side_Name::bottom), Side_Name::top);
-        }
-        if (parentSide != Side_Name::right) {
-          LOG("AP right");
-          mm::sendMessage(new Message(Message_Type::parent, Side_Name::left), Side_Name::right);
-        }
-        if (parentSide != Side_Name::bottom) {
-          LOG("AP bottom");
-          mm::sendMessage(new Message(Message_Type::parent, Side_Name::top), Side_Name::bottom);
-        }
-        if (parentSide != Side_Name::left) {
-          LOG("AP left");
-          mm::sendMessage(new Message(Message_Type::parent, Side_Name::right), Side_Name::left);
-        }
-      }
+      mm::stop(side);
       break;
     case Message_Type::tile:
-      if (hasParent) {
-        signed char oldX = (signed char) message.getData().front();
-        message.getData().pop_front();
-        signed char oldY = (signed char) message.getData().front();
-        message.getData().pop_front();
-        unsigned int encoding = message.getData().front();
-        LOG("old x: " + String(oldX) + " old y: " + String(oldY) + " encoding: " + String(encoding));
-        signed char newX, newY;
-        translateCoordinates(&newX, &newY, oldX, oldY, side, tileFlipped);
-        LOG("new x: " + String(newX) + " new y: " + String(newY) + " encoding: " + String(encoding));
-        mm::sendMessage(new Message(Message_Type::tile, (unsigned int) newX, (unsigned int) newY, encoding), parentSide);
+      {
+        std::list<unsigned int> data = message.getData();
+        signed char x = (signed char) data.front();
+        data.pop_front();
+        signed char y = (signed char) data.front();
+        data.pop_front();
+        unsigned int encoding = data.front();
+        LOG("x: " + String(x) + " y: " + String(y) + " encoding: " + String(encoding));
       }
       break;
     default:
@@ -135,8 +37,9 @@ void handleNewMessage(Message message, enum Side_Name side) {
 
 void processSerialMessage(char *message)
 {
-  if (String(message) == "read") {
-    LOG(tileEncoding);
+  if (String(message) == "start") {
+    LOG("Starting");
+    mm::wakeup();
   }
 }
 
@@ -145,7 +48,6 @@ void setup() {
   LOG("initializing");
   mm::init(handleNewMessage);
   registerSerialMessageCallback(processSerialMessage);
-  resetTile();
 }
 
 void loop() {
