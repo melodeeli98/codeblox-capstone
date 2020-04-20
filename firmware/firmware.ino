@@ -40,6 +40,7 @@ void processSerialMessage(char *message)
   if (String(message) == "start") {
     LOG("Starting");
     mm::wakeup();
+    mm::sendMessage(new Message(Message_Type::parent, Side_Name::top), Side_Name::bottom);
   }
 }
 
