@@ -125,7 +125,7 @@ void handleNewMessage(Message message, enum Side_Name side) {
         signed char newX, newY;
         translateCoordinates(&newX, &newY, oldX, oldY, side, tileFlipped);
         LOG("new x: " + String(newX) + " new y: " + String(newY) + " encoding: " + String(encoding));
-        mm::sendMessage(new Message(Message_Type::tile, (unsigned int) newX, (unsigned int) newY, encoding), parentSide);
+        mm::sendMessage(Message::newTileMessage(newX, newY, encoding), parentSide);
       }
       break;
     default:
