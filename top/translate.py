@@ -25,7 +25,7 @@ def get_translation(stream):
     for i in range(len(tiles)):
         config[xval[i]][yval[i]] = tiles[i]
 
-    return list(chain.from_iterable(config))
+    return config
 
 
 

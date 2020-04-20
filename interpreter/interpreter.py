@@ -7,6 +7,7 @@ from errors import *
 from conditionalops import *
 from customtypes import *
 import traceback
+import sys
 
 blocks = [[]]
 rows = 0
@@ -98,11 +99,16 @@ def eval(r, start, end):
     global isError, errorCode
     #find where the function or operation is 
     functionpos = -1
-    for i in range(end,start-1,-1):
-        tilegroup = getTileGroup(getTileCode(r,i))
+    curfunctionimportance = sys.maxsize
+    for i in range(start,end):
+        tilecode = getTileCode(r,i)
+        tilegroup = getTileGroup(tilecode)
         if tilegroup == OPERATOR or tilegroup == COMPARATOR or tilegroup == LOGIC:
-            functionpos = i
-            break
+            #want lowest importance to split on
+            if functionImportance(tilecode) < curfunctionimportance:
+                functionpos = i
+                curfunctionimportance = functionImportance(tilecode)
+            
     
     if functionpos == -1: #base case
         #check first tile and see if it's a bool or number and accordingly 

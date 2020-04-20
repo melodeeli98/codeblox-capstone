@@ -75,6 +75,26 @@ def tileToNum(tilecode):
     }
     return switcher.get(tilecode, -1)
 
+def functionImportance(tilecode):
+    switcher = {
+        ADDITION_T      : 3,
+        SUBTRACTION_T   : 3,
+        MULTIPLY_T      : 4,
+        DIVIDE_T        : 4,
+        MOD_T           : 4,
+
+        AND_T           : 2,
+        OR_T            : 2,
+
+        EQUAL_T         : 1,
+        NOTEQUAL_T      : 1,
+        LESSTHAN_T      : 1,
+        GREATERTHAN_T   : 1,
+        LESSTHANEQ_T    : 1,
+        GREATERTHANEQ_T : 1,
+    }
+    return switcher.get(tilecode, -1)
+
 def tileToString(tilecode):
     switcher = {
         ONE_T           : "1",
