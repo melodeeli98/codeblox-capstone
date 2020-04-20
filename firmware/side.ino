@@ -179,12 +179,14 @@ sideFromString(String side)
 }
 
 
-Side * topSide;
-Side * rightSide;
+//Side * topSide;
+//Side * rightSide;
 Side * bottomSide;
-Side * leftSide;
+//Side * leftSide;
 
 class Side * getSide(enum Side_Name side){
+  return bottomSide;
+  /*
   switch(side){
     case Side_Name::top:
       return topSide;
@@ -195,9 +197,9 @@ class Side * getSide(enum Side_Name side){
     case Side_Name::left:
       return leftSide;
   }
-  return NULL;
+  return NULL;*/
 }
-
+/*
 void topTrigger()
 {
   topSide->trigger();
@@ -206,7 +208,7 @@ void topTrigger()
 void leftTrigger()
 {
   leftSide->trigger();
-}
+}*/
 
 //bottom Trigger
 ISR(PCINT0_vect)
@@ -217,16 +219,16 @@ ISR(PCINT0_vect)
 //right Trigger
 ISR(PCINT2_vect)
 {
-  rightSide->trigger();
+  //rightSide->trigger();
 }
 
 void initSides(void (*dataCallback)(enum Side_Name))
 {
 
-  topSide = new Side(Side_Name::top, dataCallback);
-  rightSide = new Side(Side_Name::right, dataCallback);
+  //topSide = new Side(Side_Name::top, dataCallback);
+  //rightSide = new Side(Side_Name::right, dataCallback);
   bottomSide = new Side(Side_Name::bottom, dataCallback);
-  leftSide = new Side(Side_Name::left, dataCallback);
+  //leftSide = new Side(Side_Name::left, dataCallback);
 
   pinMode(5, OUTPUT);
   pinMode(6, OUTPUT);
@@ -244,17 +246,17 @@ void initSides(void (*dataCallback)(enum Side_Name))
   PCMSK2 |= 0b00010000; // PCINT20
   pinMode(2, INPUT);
   pinMode(3, INPUT);
-  attachInterrupt(0, topTrigger, RISING);
-  attachInterrupt(1, leftTrigger, RISING);
+  //attachInterrupt(0, topTrigger, RISING);
+  //attachInterrupt(1, leftTrigger, RISING);
   sei();
 }
 
 void updateSides()
 {
-  topSide->update();
-  rightSide->update();
+  //topSide->update();
+  //rightSide->update();
   bottomSide->update();
-  leftSide->update();
+  //leftSide->update();
 }
 
 void flipTile()
@@ -270,3 +272,4 @@ void sendPulse(Side_Name side)
   }
   getSide(side)->toggleData();
 }
+

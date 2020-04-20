@@ -186,13 +186,14 @@ class MessageManager {
 
 
 
-MessageManager * topMessageManager;
-MessageManager * rightMessageManager;
+//MessageManager * topMessageManager;
+//MessageManager * rightMessageManager;
 MessageManager * bottomMessageManager;
-MessageManager * leftMessageManager;
+//MessageManager * leftMessageManager;
 
 class MessageManager * getMessageManager(enum Side_Name side){
-  switch(side){
+  return bottomMessageManager;
+  /*switch(side){
     case Side_Name::top:
       return topMessageManager;
     case Side_Name::right:
@@ -202,21 +203,21 @@ class MessageManager * getMessageManager(enum Side_Name side){
     case Side_Name::left:
       return leftMessageManager;
   }
-  return NULL;
+  return NULL;*/
 }
 
 namespace mm{
   void init(void (*callback)(Message, enum Side_Name)){
-    topMessageManager = new MessageManager (Side_Name::top, callback);
-    rightMessageManager = new MessageManager (Side_Name::right, callback);
+    //topMessageManager = new MessageManager (Side_Name::top, callback);
+    //rightMessageManager = new MessageManager (Side_Name::right, callback);
     bottomMessageManager = new MessageManager (Side_Name::bottom, callback);
-    leftMessageManager = new MessageManager (Side_Name::left, callback);
+    //leftMessageManager = new MessageManager (Side_Name::left, callback);
   }
   void wakeup(){
-    topMessageManager->start();
-    rightMessageManager->start();
+    //topMessageManager->start();
+    //rightMessageManager->start();
     bottomMessageManager->start();
-    leftMessageManager->start();
+    //leftMessageManager->start();
   }
   void newBitCallback(enum Side_Name s){
     getMessageManager(s)->processNewBit();
@@ -226,10 +227,10 @@ namespace mm{
     getMessageManager(s)->enqueueMessage(m);
   }
   void update(){
-    topMessageManager->update();
-    rightMessageManager->update();
+    //topMessageManager->update();
+    //rightMessageManager->update();
     bottomMessageManager->update();
-    leftMessageManager->update();
+    //leftMessageManager->update();
   }
 
   void stop(enum Side_Name s){

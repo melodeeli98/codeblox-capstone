@@ -6,7 +6,7 @@
 
 
 const int word_size = 10;
-const long clock_period = 100000UL; //uS
+const long clock_period = 10000UL; //uS
 
 enum Message_Type : unsigned int{ wakeup=0b100000000, alive=0b100000001, parent=0b100000010, tile=0b100000011, done=0b100000100, stop=0b100000101};
 
