@@ -41,7 +41,7 @@ class Message {
       }
 
       static Message * newTileMessage(signed char x, signed char y, unsigned int encoding){
-        return new Message(Message_Type::tile, (unsigned int) x, (unsigned int) y, encoding);
+        return new Message(Message_Type::tile, (unsigned int)((unsigned char) x), (unsigned int) ((unsigned char) y), encoding);
       }
 
       String toString(){
