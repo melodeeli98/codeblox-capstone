@@ -54,16 +54,16 @@ class Message {
             s = "parent: ";
             break;
           case alive:
-            s = "alive";
+            s = "alive: ";
             break;
           case done:
-            s = "done";
+            s = "done: ";
             break;
           case stop:
-            s = "stop";
+            s = "stop: ";
             break;
           default:
-            s = "unknown message";
+            s = "unknown message: ";
             break;
         }
         for (std::list<unsigned int>::iterator it = words->begin(); it != words->end(); it++){

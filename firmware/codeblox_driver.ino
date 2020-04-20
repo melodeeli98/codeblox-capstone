@@ -18,7 +18,8 @@ void initDriver(void (*callback)(Side_Name)){
   analogReference(EXTERNAL);
 
   Serial.begin(9600);
-
+  delay(1);
+  
   initSides(callback);
 }
 

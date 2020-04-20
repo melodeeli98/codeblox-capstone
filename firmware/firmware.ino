@@ -93,23 +93,23 @@ void handleNewMessage(Message message, enum Side_Name side) {
           LOG("flipping");
           tileFlipped = true;
         }
-
-        // Send parent requests to all other sides
-        if (parentSide != Side_Name::top) {
-          LOG("AP top");
-          mm::sendMessage(new Message(Message_Type::parent, Side_Name::bottom), Side_Name::top);
-        }
-        if (parentSide != Side_Name::right) {
-          LOG("AP right");
-          mm::sendMessage(new Message(Message_Type::parent, Side_Name::left), Side_Name::right);
-        }
-        if (parentSide != Side_Name::bottom) {
-          LOG("AP bottom");
-          mm::sendMessage(new Message(Message_Type::parent, Side_Name::top), Side_Name::bottom);
-        }
-        if (parentSide != Side_Name::left) {
-          LOG("AP left");
-          mm::sendMessage(new Message(Message_Type::parent, Side_Name::right), Side_Name::left);
+        if(numValidSides > 1){
+          // Send parent requests to all other sides
+          if (parentSide != Side_Name::top) {
+            mm::sendMessage(new Message(Message_Type::parent, Side_Name::bottom), Side_Name::top);
+          }
+          if (parentSide != Side_Name::right) {
+            mm::sendMessage(new Message(Message_Type::parent, Side_Name::left), Side_Name::right);
+          }
+          if (parentSide != Side_Name::bottom) {
+            mm::sendMessage(new Message(Message_Type::parent, Side_Name::top), Side_Name::bottom);
+          }
+          if (parentSide != Side_Name::left) {
+            mm::sendMessage(new Message(Message_Type::parent, Side_Name::right), Side_Name::left);
+          }
+        } else {
+          mm::sendMessage(Message::newTileMessage(0, 0, flipEncoding(tileEncoding, tileFlipped)), parentSide);
+          mm::sendMessage(new Message(Message_Type::done), parentSide);
         }
       }
       break;
@@ -134,18 +134,12 @@ void handleNewMessage(Message message, enum Side_Name side) {
   }
 }
 
-void processSerialMessage(char *message)
-{
-  if (String(message) == "read") {
-    LOG(tileEncoding);
-  }
-}
+
 
 void setup() {
   initDriver(mm::newBitCallback);
   LOG("initializing");
   mm::init(handleNewMessage);
-  registerSerialMessageCallback(processSerialMessage);
   resetTile();
 }
 
