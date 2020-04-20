@@ -63,11 +63,13 @@ class MessageManager {
       }
     }
     void enqueueMessage(Message *message){
-      for (list<unsigned int>::iterator it = message->words->begin(); it != message->words->end(); it++){
-        //precede word with one to track bit to send
-        //LOG(String("enqueing ") + String(*it, BIN));
-        unsigned int word = *it | (1<< (word_size-1));
-        outgoingWords.push_back(word);
+      if(sendingMessages){
+        for (list<unsigned int>::iterator it = message->words->begin(); it != message->words->end(); it++){
+          //precede word with one to track bit to send
+          //LOG(String("enqueing ") + String(*it, BIN));
+          unsigned int word = *it | (1<< (word_size-1));
+          outgoingWords.push_back(word);
+        }
       }
       delete message;
     }
@@ -220,6 +222,7 @@ namespace mm{
     getMessageManager(s)->processNewBit();
   }
   void sendMessage(Message* m, enum Side_Name s){
+    LOG(String("SM ") + sideToString(s) + String(": ") + m->toString());
     getMessageManager(s)->enqueueMessage(m);
   }
   void update(){
