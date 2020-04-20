@@ -1,5 +1,9 @@
 from itertools import chain
 
+# output format: n x m matrix
+# every CodeBlox tile has a positive number associated with tileops
+# every other tile is -1 (NOP). 
+
 def get_translation(stream):
     if len(stream) == 0:
         return []

@@ -17,6 +17,9 @@ curstate = STATE_NONE
 vars = [0,0,0,0,0]
 outputFile = 0
 
+def isNOP(tile):
+    group = getTileGroup(tile)
+    return group == NOP 
 
 def getTileCode(r, c):
     if r < 0 or r >= rows:
@@ -39,7 +42,7 @@ def parseNumber(r,start,end):
 
     for i in range(start,end+1):
         curtile = getTileCode(r,i)
-        if curtile == NOP_T:
+        if isNOP(curtile):
             break
         if curtile == NEGATIVE_T:
             neg = True 
@@ -146,14 +149,14 @@ def eval(r, start, end):
 def evalExpression(r, c):
     #calculate the end of the expression
     cend = c 
-    while getTileCode(r,cend+1) != NOP_T:
+    while not isNOP(getTileCode(r,cend+1)):
         cend += 1
     #make sure there is at least one thing to evaluate
     return eval(r,c,cend) #inclusive
 
 def findExitCondition(r,indent):
     for i in range(r,rows):
-        if getTileCode(i,indent-1) != NOP_T:
+        if not isNOP(getTileCode(i,indent-1)):
             return i 
     return rows
 
@@ -246,7 +249,7 @@ def runCode(r, indent):
     tile = getTileCode(r, indent)
     
     #if tile is nop, then error: too much indentation
-    if tile == NOP_T:
+    if isNOP(tile):
         raise InterpreterError(ERROR_INDENT, (r,indent))
 
     curr = r
@@ -256,7 +259,7 @@ def runCode(r, indent):
 
         #if the block left of that is not nop, then indentation back
         # want to return new position
-        if getTileCode(curr, indent-1) != NOP_T:
+        if not isNOP(getTileCode(curr, indent-1)):
             return 
         
         else:

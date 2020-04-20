@@ -6,7 +6,7 @@ THREE_T         = 3
 FOUR_T          = 4
 FIVE_T          = 5
 SIX_T           = 6
-SEVEN_T = 7
+SEVEN_T         = 7
 EIGHT_T         = 8
 NINE_T          = 9
 ZERO_T          = 10
@@ -50,4 +50,4 @@ LEFTMOTOR_T     = 39
 RIGHTMOTOR_T    = 40
 PRINT_T         = 41
 
-NOP_T           = -1
+NOP_T           = 63

@@ -1,6 +1,10 @@
 from gui import draw
 from interpreter import interpret
 
+# TODO: call translate from here, translate will be the one deserializing the input from
+# the master tile. 
+# further instructions in translate.py
+
 # # x = -10 + 1; print x; print x + 25; print x/0
 #blocks = [[14,26,21,1,10,22,1],[41,14,-1,-1,-1,-1,-1], [41,14,22,2,5,-1,-1], [41,14,24,10,-1,-1,-1]] 
 
