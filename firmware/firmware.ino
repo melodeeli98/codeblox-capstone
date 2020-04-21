@@ -1,25 +1,22 @@
 #include "codeblox_driver.h"
 
-void handleNewMessage(Message message, enum Side_Name side) {
+void handleNewMessage(const Message& message, enum Side_Name side) {
   LOG(String("NM ") + sideToString(side) + String(": ") + message.toString());
   switch (message.type) {
     case Message_Type::stop:
       break;
     case Message_Type::done:
       LOG("DONE!");
-      mm::stop(side);
+      stopComm(side);
       break;
     case Message_Type::parent:
-      mm::stop(side);
+      stopComm(side);
       break;
     case Message_Type::tile:
       {
-        std::list<unsigned int> data = message.getData();
-        signed char x = (signed char) data.front();
-        data.pop_front();
-        signed char y = (signed char) data.front();
-        data.pop_front();
-        unsigned int encoding = data.front();
+        char x = (char) message.words[1];
+        char y = (char) message.words[2];
+        byte encoding = message.words[3];
         LOG("x: " + String(x) + " y: " + String(y) + " encoding: " + String(encoding));
       }
       break;
@@ -47,5 +44,4 @@ void setup() {
 
 void loop() {
   updateDriver();
-  mm::update();
 }

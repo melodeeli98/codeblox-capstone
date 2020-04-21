@@ -52,7 +52,7 @@ public:
       words[i] = _words[i];
     }
   }
-  String toString(){
+  String toString() const {
     String s = "";
     switch(type){
       case tile:
