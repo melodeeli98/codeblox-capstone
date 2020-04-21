@@ -60,7 +60,7 @@ class Side{
   enum Side_Name sideName;
   volatile int currOutBit;
   volatile byte currOutWord;
-  volatile byte currInWord;
+  volatile unsigned int currInWord;
   volatile int timeout;
   volatile bool receivedFirstBit;
   volatile bool receivedWakeup;
@@ -117,6 +117,7 @@ public:
 
   //new data bit trigger
   void trigger(){
+    unsigned long timeReceived = timeMicros();
     if(neighborIsValid || asleep){
       if(asleep){
         resetClock();
@@ -129,9 +130,9 @@ public:
       if(!receivedFirstBit){
         receivedFirstBit = true;
       }else{
-        numBits = (timeMicros() - lastReceivedBit + clock_period/2) / clock_period;
+        numBits = (timeReceived - lastReceivedBit + clock_period/2) / clock_period;
       }
-      lastReceivedBit = timeMicros();
+      lastReceivedBit = timeReceived;
       
       if(numBits <= 0){
         //bit sent too soon.  Failure condition
