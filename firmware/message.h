@@ -3,7 +3,7 @@
 const int word_size = 8;
 const unsigned long clock_period = 100000UL; //uS
 
-enum Message_Type : byte{ wakeup=0, alive=1, parent=2, tile3, done=4, stop=5};
+enum Message_Type : byte{ wakeup=0, alive=1, parent=2, tile=3, done=4, stop=5};
 
 #include "codeblox_driver.h"
 

@@ -119,7 +119,7 @@ public:
   void trigger(){
     if(neighborIsValid || asleep){
       if(asleep){
-        startCommAllSides()
+        startCommAllSides();
         startSendTimer();
         asleep = false;
       }
