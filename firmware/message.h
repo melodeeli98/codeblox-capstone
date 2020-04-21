@@ -52,7 +52,7 @@ public:
       words[i] = _words[i];
     }
   }
-  String toString(){
+  String toString() const {
     String s = "";
     switch(type){
       case tile:
@@ -84,5 +84,4 @@ public:
 
 
 const Message done_message (Message_Type::done);
-const Message stop_message (Message_Type::done);
-
+const Message stop_message (Message_Type::stop);
