@@ -65,7 +65,7 @@ class Side{
   volatile bool receivedFirstBit;
   volatile bool receivedWakeup;
   volatile unsigned long lastReceivedBit;
-  bool sentStop;
+  volatile bool sentStop;
 public:
   RingBuffer outBuffer;
   RingBuffer inBuffer;
@@ -118,6 +118,7 @@ public:
   void trigger(){
     if(neighborIsValid || asleep){
       if(asleep){
+        startSending();
         startSendTimer();
         asleep = false;
       }
