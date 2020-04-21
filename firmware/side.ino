@@ -33,10 +33,12 @@ public:
      end = (end+1) % buf_size;
   } 
   int size(){
-    if(start > end){
-      return buf_size - start + end;
+    int _start = start;
+    int _end = end;
+    if(_start > _end){
+      return buf_size - _start + _end;
     }else{
-      return end-start;
+      return _end-_start;
     }
   }
   byte peek(){

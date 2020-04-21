@@ -44,4 +44,15 @@ void setup() {
 
 void loop() {
   updateDriver();
+  static unsigned long t = timeMicros();
+  if(timeMicros() - t > 20000000UL){
+    t = timeMicros();
+    stopComm(Side_Name::top);
+    stopComm(Side_Name::right);
+    stopComm(Side_Name::bottom);
+    stopComm(Side_Name::left);
+    startCommAllSides();
+    Message parentMessage (Message_Type::parent, Side_Name::top);
+    sendMessage(Side_Name::bottom, parentMessage);
+  }
 }
