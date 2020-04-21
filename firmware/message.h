@@ -3,7 +3,7 @@
 const int word_size = 8;
 const unsigned long clock_period = 100000UL; //uS
 
-enum Message_Type : byte{ wakeup=0, alive, parent, tile, done, stop};
+enum Message_Type : byte{ wakeup=0, alive=1, parent=2, tile=3, done=4, stop=5};
 
 #include "codeblox_driver.h"
 
@@ -70,9 +70,13 @@ public:
       case stop:
         s = "stop: ";
         break;
+      case wakeup:
+        s = "wakeup: ";
+        break;
       default:
         s = "unknown message: ";
-        s+= String(words[0], BIN);
+        s += String(words[0], BIN);
+        s += " ";
         break;
     }
     for (int i = 1; i < num_words; i++){

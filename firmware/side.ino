@@ -81,6 +81,7 @@ public:
     inBuffer.clear();
     currOutBit = word_size;
     currOutWord = Message_Type::wakeup;
+    currInWord = 0;
     timeout = 0;
     receivedFirstBit = false;
     receivedWakeup = false;
@@ -118,7 +119,7 @@ public:
   void trigger(){
     if(neighborIsValid || asleep){
       if(asleep){
-        startSending();
+        startCommAllSides();
         startSendTimer();
         asleep = false;
       }
@@ -149,7 +150,7 @@ public:
           stop();
         } else {
           receivedWakeup = true;
-          if( currInWord != Message_Type::alive ){
+          if( currInWord != Message_Type::alive && currInWord != Message_Type::wakeup){
             inBuffer.enqueue(currInWord);
           }
         }
