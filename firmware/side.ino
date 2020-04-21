@@ -116,11 +116,11 @@ public:
 
   //new data bit trigger
   void trigger(){
-    if(asleep){
-      startSendTimer();
-      asleep = false;
-    }
-    if(neighborIsValid){
+    if(neighborIsValid || asleep){
+      if(asleep){
+        startSendTimer();
+        asleep = false;
+      }
       timeout = 0;
       int numBits = 1;
       if(!receivedFirstBit){
@@ -132,7 +132,6 @@ public:
       
       if(numBits <= 0){
         //bit sent too soon.  Failure condition
-        LOG("bit sent too soon");
         stop();
         return;
       }
@@ -140,7 +139,6 @@ public:
       while(currInWord >> currWordBits){
         currWordBits++;
       }
-      //LOG("w+n= " + String(wordBits) + "+" + String(numBits));
       if(currWordBits + numBits == word_size + 2){
         currInWord <<= (numBits-1);
         currInWord &= ~(1<<word_size);
@@ -157,11 +155,9 @@ public:
         currInWord = 1;
         
       }else if(currWordBits + numBits > word_size + 2){
-        LOG("Message contains too many bits");
         stop();
         return;
       }else{
-        //LOG("adding to word ");
         currInWord = (currInWord << numBits) | 1;
       }
     } 
@@ -284,7 +280,7 @@ ISR(TIMER1_COMPA_vect)
 
 
 void initSides(void (*callback)(const Message &, enum Side_Name)){
-  asleep = true;
+  asleep = false;
 
   newMessageCallback = callback;
   
@@ -318,7 +314,6 @@ void initSides(void (*callback)(const Message &, enum Side_Name)){
   TCCR1B |= (1<<WGM12);
   TCCR1B &= ~(1<<WGM13);
   //reset timer and set compare value
-  TCNT1 = 0;
   OCR1A = clock_period/pre_scaler;
   //enable timer compare interrupt
   startSendTimer();
@@ -334,6 +329,7 @@ void updateSides(){
 
 
 static void startSendTimer(){
+  TCNT1 = 0;
   TIMSK1 = (1<<OCIE1A);
 }
 
@@ -359,3 +355,4 @@ void startCommAllSides(){
 void stopComm(Side_Name side_name){
   getSide(side_name)->stop();
 }
+
