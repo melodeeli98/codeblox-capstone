@@ -48,7 +48,7 @@ public:
     return w;
   }  
   void clear(){
-    start = stop;
+    start = end;
   }
 };
 
