@@ -7,7 +7,7 @@ using namespace std;
 
 void resetClock();
 
-void initDriver(void (*callback)(Side_Name)){
+void initDriver(void (*newMessageCallback)(Message, enum Side_Name)){
   // turn off reflective sensors asap
   DDRB |= 1 << PINB7;
   PORTB |= 1 << PINB7;
@@ -20,10 +20,11 @@ void initDriver(void (*callback)(Side_Name)){
   Serial.begin(9600);
   delay(1);
   
-  initSides(callback);
+  initSides(newMessageCallback);
 }
 
 void goToSleep(){
+  stopSendTimer();
   LowPower.powerDown(SLEEP_FOREVER, ADC_OFF, BOD_OFF);
   resetClock();
 }
@@ -56,7 +57,7 @@ int readReflectiveSensor(int sensor){
 
 const unsigned long sensorLoadTime = 1000UL;
 const int sensorThreshold = 250;
-unsigned int *sensors = NULL;
+byte *sensors = NULL;
 int * sensor0 = NULL;
 int * sensor1 = NULL;
 int * sensor2 = NULL;
@@ -68,18 +69,16 @@ bool readSensorsRaw = false;
 unsigned long readSensorsTime = 0;
 unsigned long readSensorsRawTime = 0;
 
-//MinHeap<unsigned long, Func<void()>> eventHeap;
 
 void updateDriver(){
-
   updateSides();
 
   if(readSensorsTime < timeMicros() && readSensors){
     readSensors = false;
-    unsigned int value = 0;
+    byte value = 0;
     for (int sensor = 0; sensor < numReflectiveSensors; sensor++)
     {
-      value |= (((unsigned int)!(readReflectiveSensor(sensor) < sensorThreshold)) << sensor);
+      value |= (((byte)!(readReflectiveSensor(sensor) < sensorThreshold)) << sensor);
     }
     *sensors = value;
     if(!readSensorsRaw){
@@ -127,7 +126,7 @@ void updateDriver(){
 
 
 
-void readReflectiveSensorsLater(unsigned int *s){
+void readReflectiveSensorsLater(byte *s){
   sensors = s;
   readSensors = true;
   readSensorsTime = timeMicros() + sensorLoadTime;
@@ -160,7 +159,7 @@ size_t serialLog(const char s[]){
 size_t serialLog(char s){
   return Serial.println(s);
 }
-size_t serialLog(unsigned char s , int i){
+size_t serialLog(byte s , int i){
   return Serial.println(s, i);
 }
 size_t serialLog(int s, int i){
@@ -201,14 +200,3 @@ unsigned long timeMicros(){
   return currTime - startTime;
 }
 
-
-int interruptDepth = 0;
-void disableInterrupts(){
-  interruptDepth++;
-}
-void enableInterrupts(){
-  interruptDepth--;
-}
-bool interruptsEnabled(){
-  return interruptDepth == 0;
-}

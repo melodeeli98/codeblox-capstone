@@ -1,6 +1,6 @@
 #pragma once
 
-enum Side_Name: unsigned int
+enum Side_Name: byte
 {
     top = 1,
     right = 2,
@@ -8,14 +8,25 @@ enum Side_Name: unsigned int
     left = 4
 };
 
-enum Side_Name opposite(enum Side_Name);
-enum Side_Name sideFromString(String side);
 String sideToString(Side_Name side);
 
-void initSides(void (*)(enum Side_Name));
+void initSides(void (*)(Message, enum Side_Name));
 
 void updateSides();
 
-void sendPulse(enum Side_Name);
+void startCommAllSides();
+void stopComm(Side_Name);
+bool isValid(Side_Name side_name);
 
-void flipTile();
+//before going to sleep, you must call this
+//to disable the timer interrupt
+void stopSendTimer();
+
+int numAvailableWords(Side_Name);
+
+byte peekWord(Side_Name);
+
+byte popWord(Side_Name);
+
+void sendMessage(Side_Name s, Message& m);
+

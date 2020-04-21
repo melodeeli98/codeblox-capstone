@@ -2,6 +2,7 @@
 #include <avr/io.h>
 #include <ArduinoSTL.h>
 #include "codeblox_driver.h"
+#include "message.h"
 using namespace std;
 
 //IR inputs
@@ -16,134 +17,190 @@ using namespace std;
 // B arduino pin 7
 // L arduino pin 6
 
-enum Int_Type
-{
-  PCINT,
-  INT
-};
+volatile bool asleep;
 
-bool flipped = false;
-
-class Side
-{
-  enum Side_Name sideName;
-  void (*dataCallback)(enum Side_Name);
-  volatile bool triggered;
-  Int_Type intType;
-  const unsigned long pulseWidth = 50UL; //uS
+class RingBuffer{
+  const int buff_size = 64;
+  volatile byte buff[buf_size];
+  volatile int start;
+  volatile int end;
+  volatile int currBit;
 public:
-  Side(enum Side_Name n, void (*callback)(enum Side_Name))
-  {
-    sideName = n;
-    triggered = false;
-    dataCallback = callback;
-    if (n == Side_Name::top || n == Side_Name::left)
-    {
-      intType = Int_Type::INT;
-    }
-    else
-    {
-      intType = Int_Type::PCINT;
-    }
-  };
-  void update()
-  {
-    if (interruptsEnabled() && triggered)
-    {
-      triggered = false;
-      if (!flipped)
-      {
-        dataCallback(sideName);
-      }
-      else
-      {
-        dataCallback(opposite(sideName));
-      }
+  RingBuffer(){
+    start = 0;
+    end = 0;
+  }
+  void enqueue(byte w){
+     buff[end] = w;
+     end = (end+1) % buff_size;
+  } 
+  int size(){
+    if(start > end){
+      return buf_size - start + end;
+    }else{
+      return end-start;
     }
   }
-  void trigger()
-  {
-    if (intType == Int_Type::INT || readData() == HIGH)
-    {
-      triggered = true;
-    }
+  byte peek(){
+    buff[start];
   }
-  void toggleData()
-  {
-    setData(HIGH);
-    delayMicroseconds(pulseWidth);
-    setData(LOW);
-  }
-  void setData(int value)
-  {
-    if (sideName == Side_Name::top)
-    {
-      digitalWrite(5, value);
-    }
-    else if (sideName == Side_Name::right)
-    {
-      digitalWrite(8, value);
-    }
-    else if (sideName == Side_Name::bottom)
-    {
-      digitalWrite(7, value);
-    }
-    else if (sideName == Side_Name::left)
-    {
-      digitalWrite(6, value);
-    }
-  }
-  int readData()
-  {
-    int value = 0;
-    if (sideName == Side_Name::top)
-    {
-      value = digitalRead(2);
-    }
-    else if (sideName == Side_Name::right)
-    {
-      value = PIND & (1 << PIND4);
-    }
-    else if (sideName == Side_Name::bottom)
-    {
-      value = PINB & (1 << PINB6);
-    }
-    else if (sideName == Side_Name::left)
-    {
-      value = digitalRead(3);
-    }
-    if (value)
-    {
-      return HIGH;
-    }
-    else
-    {
-      return LOW;
-    }
-  }
-};
-
-enum Side_Name
-opposite(enum Side_Name side)
-{
-  switch (side)
-  {
-  case Side_Name::top:
-    return Side_Name::bottom;
-  case Side_Name::right:
-    return Side_Name::left;
-  case Side_Name::bottom:
-    return Side_Name::top;
-  case Side_Name::left:
-    return Side_Name::right;
-  default:
-    return Side_Name::top;
+  byte dequeue(){
+    byte w = buff[start];
+    start = (start+1) % buff_size;
+    return w;
+  }  
+  void clear(){
+    start = stop;
   }
 }
 
+static void startSendTimer();
+
+void (*newMessageCallback)(Message, enum Side_Name);
+
+class Side{
+  enum Side_Name sideName;
+  volatile int currOutBit;
+  volatile byte currOutWord;
+  volatile byte currInWord;
+  const word_size = 8;
+  volatile int timeout;
+  volatile bool receivedFirstBit;
+  volatile unsigned long lastReceivedBit;
+  bool sentStop;
+public:
+  RingBuffer outBuffer;
+  RingBuffer inBuffer;
+  volatile bool neighborIsValid;
+
+  Side(enum Side_Name n){
+    sideName = n;
+    neighborIsValid = false;
+  };
+
+  void startSending(){
+    outBuff.clear();
+    inBuff.clear();
+    currOutBit = word_size;
+    currOutWord = Message_Type::wakeup;
+    timeout = 0;
+    receivedFirstBit = false;
+    sentStop = false;
+
+    //must be last
+    neighborIsValid = true;
+  }
+
+  void stop(){
+    neighborIsValid = false;//must happen first
+  }
+
+  void update(){
+    if(neighborIsValid){
+      if(inBuffer.size() > 0){
+        Message_Type m = (Message_Type) inBuffer.peek();
+        int messageSize = numberOfDataWords(m) + 1;
+        if(inBuffer.size() >= messageSize){
+          byte words [messageSize];
+          for(int i = 0; i < messageSize; i++){
+            words[i] = inBuffer.pop();
+          }
+          Message receivedMessage (messageSize, words);
+          newMessageCallback(receivedMessage, sideName);
+        }
+      }
+    } else if(!sentStop){
+      sentStop == true;
+      newMessageCallback(stop_message, sideName);
+    }
+  }
+
+  //new data bit trigger
+  void trigger(){
+    if(asleep){
+      startSendTimer();
+      asleep = false;
+    }
+    if(neighborIsValid){
+      timeout = 0;
+      int numBits = 1;
+      if(!receivedFirstBit){
+        receivedFirstBit = true;
+      }else{
+        numBits = (timeMicros() - lastReceivedBit + clock_period/2) / clock_period;
+      }
+      lastReceivedBit = timeMicros();
+      
+      if(numBits <= 0){
+        //bit sent too soon.  Failure condition
+        LOG("bit sent too soon");
+        stop();
+        return;
+      }
+      int currWordBits = 0;
+      while(currInWord >> currWordBits){
+        currWordBits++;
+      }
+      //LOG("w+n= " + String(wordBits) + "+" + String(numBits));
+      if(wordBits + numBits == word_size + 2){
+        currInWord <<= (numBits-1);
+        currInWord &= ~(1<<word_size);
+        inBuffer.enqueue(currInWord);
+        currInWord = 1;
+        
+      }else if(wordBits + numBits > word_size + 2){
+        LOG("Message contains too many bits");
+        stop();
+        return;
+      }else{
+        //LOG("adding to word ");
+        currInWord = (currInWord << numBits) | 1;
+      }
+    } 
+  }
+  
+  //time to send data bit
+  void sendBit(){
+    if(neighborIsValid){
+      if(currOutBit == word_size){
+        setData(HIGH);
+      }else{
+        if(currOutWord & (1 << currOutBit)){
+          setData(HIGH);
+        }
+      }
+      currOutBit--;
+      if(currOutBit < 0){
+        if(outBuffer.size() > 0){
+          currOutWord = outBuffer.pop();
+        }else{
+          currOutWord = Message_Type::alive;
+        }
+        currOutBit = word_size;        
+      }
+      timeout++;
+      if(timeout > word_size + 3){
+        stop();
+      }
+    }
+  }
+
+  void setData(int value){
+    if (sideName == Side_Name::top){
+      digitalWrite(5, value);
+    } else if (sideName == Side_Name::right){
+      digitalWrite(8, value);
+    } else if (sideName == Side_Name::bottom){
+      digitalWrite(7, value);
+    } else if (sideName == Side_Name::left){
+      digitalWrite(6, value);
+    }
+  }
+};
+
+
 String sideToString(Side_Name side){
-  switch (side)
-  {
+  switch (side){
   case Side_Name::top:
     return String("top");
   case Side_Name::right:
@@ -157,77 +214,73 @@ String sideToString(Side_Name side){
   }
 }
 
-Side_Name
-sideFromString(String side)
-{
-  if (side == "top")
-  {
-    return Side_Name::top;
-  }
-  else if (side == "right")
-  {
-    return Side_Name::right;
-  }
-  else if (side == "bottom")
-  {
-    return Side_Name::bottom;
-  }
-  else
-  {
-    return Side_Name::left;
-  }
-}
 
-
-Side * topSide;
-Side * rightSide;
-Side * bottomSide;
-Side * leftSide;
+Side topSide (Side_Name::top);
+Side rightSide (Side_Name::right);
+Side bottomSide (Side_Name::bottom);
+Side leftSide (Side_Name::left);
 
 class Side * getSide(enum Side_Name side){
   switch(side){
     case Side_Name::top:
-      return topSide;
+      return &topSide;
     case Side_Name::right:
-      return rightSide;
+      return &rightSide;
     case Side_Name::bottom:
-      return bottomSide;
+      return &bottomSide;
     case Side_Name::left:
-      return leftSide;
+      return &leftSide;
   }
   return NULL;
 }
 
 void topTrigger()
 {
-  topSide->trigger();
+  topSide.trigger();
 }
 
 void leftTrigger()
 {
-  leftSide->trigger();
+  leftSide.trigger();
 }
 
 //bottom Trigger
 ISR(PCINT0_vect)
 {
-  bottomSide->trigger();
+  if(!(PINB & (1 << PINB6))){
+    bottomSide.trigger();
+  }
 }
 
 //right Trigger
 ISR(PCINT2_vect)
 {
-  rightSide->trigger();
+  if(!(PIND & (1 << PIND4))){
+    rightSide.trigger();
+  }
 }
 
-void initSides(void (*dataCallback)(enum Side_Name))
+//timer interrupt
+ISR(TIMER1_COMPA_vect)
 {
+  topSide.sendBit();
+  rightSide.sendBit();
+  bottomSide.sendBit();
+  leftSide.sendBit();
 
-  topSide = new Side(Side_Name::top, dataCallback);
-  rightSide = new Side(Side_Name::right, dataCallback);
-  bottomSide = new Side(Side_Name::bottom, dataCallback);
-  leftSide = new Side(Side_Name::left, dataCallback);
+  topSide.setData(LOW);
+  rightSide.setData(LOW);
+  bottomSide.setData(LOW);
+  leftSide.setData(LOW);
+}
 
+
+void initSides(void (*callback)(Message, enum Side_Name))
+{
+  asleep = true;
+
+  newMessageCallback = callback;
+  
   pinMode(5, OUTPUT);
   pinMode(6, OUTPUT);
   pinMode(7, OUTPUT);
@@ -244,29 +297,60 @@ void initSides(void (*dataCallback)(enum Side_Name))
   PCMSK2 |= 0b00010000; // PCINT20
   pinMode(2, INPUT);
   pinMode(3, INPUT);
-  attachInterrupt(0, topTrigger, RISING);
-  attachInterrupt(1, leftTrigger, RISING);
+  attachInterrupt(0, topTrigger, FALLING);
+  attachInterrupt(1, leftTrigger, FALLING);
+
+  //reset timer1 control reg A
+  TCCR1A = 0;
+  //no prescaler
+  TCCR1B &= ~(1<<CS12);
+  TCCR1B |= (1<<CS10);
+  const unsigned long pre_scaler = 1;
+  // Set CTC mode
+  TCCR1B |= (1<<WGM12);
+  TCCR1B &= ~(1<<WGM13);
+  //reset timer and set compare value
+  TCNT1 = 0;
+  OCR1A = clock_period/pre_scaler;
+  //enable timer compare interrupt
+  startSendTimer();
   sei();
 }
 
-void updateSides()
-{
-  topSide->update();
-  rightSide->update();
-  bottomSide->update();
-  leftSide->update();
+void updateSides(){
+  topSide.update();
+  rightSide.update();
+  bottomSide.update();
+  leftSide.update();
 }
 
-void flipTile()
-{
-  flipped = !flipped;
+
+static void startSendTimer(){
+  TIMSK1 = (1<<OCIE1A);
 }
 
-void sendPulse(Side_Name side)
-{
-  if (flipped)
-  {
-    side = opposite(side);
+void stopSendTimer(){
+  TIMSK1 = 0;
+  asleep = true;
+}
+
+void sendMessage(Side_Name s, Message& m){
+  Side *side = getSide(s);
+  for(int i = 0; i < m.num_words; i++){
+    side->outBuffer.enqueue(m.words[i]);
   }
-  getSide(side)->toggleData();
 }
+
+void startCommAllSides(){
+  topSide.startSending();
+  rightSide.startSending();
+  bottomSide.startSending();
+  leftSide.startSending();
+}
+
+void stopComm(Side_Name side_name){
+  getSide(side_name)->stop();
+}
+
+
+
