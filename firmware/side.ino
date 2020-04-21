@@ -40,7 +40,7 @@ public:
     }
   }
   byte peek(){
-    buf[start];
+    return buf[start];
   }
   byte dequeue(){
     byte w = buf[start];
@@ -107,7 +107,7 @@ public:
         }
       }
     } else if(!sentStop){
-      sentStop == true;
+      sentStop = true;
       newMessageCallback(stop_message, sideName);
     }
   }

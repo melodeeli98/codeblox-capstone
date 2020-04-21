@@ -17,10 +17,10 @@ void resetTile() {
   readReflectiveSensorsLater(&tileEncoding);
 }
 
-void translateCoordinates(signed char * newX, signed char * newY, signed char oldX, signed char oldY, Side_Name side, bool tileFlipped) {
+void translateCoordinates(char * newX, char * newY, char oldX, char oldY, Side_Name side, bool tileFlipped) {
   *newX = oldX;
   *newY = oldY;
-  signed char multiplier = 1;
+  char multiplier = 1;
   if (tileFlipped) {
     multiplier = -1;
   }
@@ -115,8 +115,8 @@ void handleNewMessage(const Message& message, enum Side_Name side) {
       break;
     case Message_Type::tile:
       if (hasParent) {
-        signed char oldX = (char) message.words[1];
-        signed char oldY = (char) message.words[2];
+        char oldX = (char) message.words[1];
+        char oldY = (char) message.words[2];
         byte encoding = message.words[3];
         LOG("old x: " + String(oldX) + " old y: " + String(oldY) + " encoding: " + String(encoding));
         char newX, newY;
