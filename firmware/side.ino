@@ -63,6 +63,7 @@ class Side{
   volatile byte currInWord;
   volatile int timeout;
   volatile bool receivedFirstBit;
+  volatile bool receivedWakeup;
   volatile unsigned long lastReceivedBit;
   bool sentStop;
 public:
@@ -82,6 +83,7 @@ public:
     currOutWord = Message_Type::wakeup;
     timeout = 0;
     receivedFirstBit = false;
+    receivedWakeup = false;
     sentStop = false;
 
     //must be last
@@ -142,7 +144,16 @@ public:
       if(currWordBits + numBits == word_size + 2){
         currInWord <<= (numBits-1);
         currInWord &= ~(1<<word_size);
-        inBuffer.enqueue(currInWord);
+        if(!receivedWakeup && currInWord != Message_Type::wakeup){
+          stop();
+        }else if (receivedWakeup && currInWord == Message_Type::wakeup){
+          stop();
+        } else {
+          receivedWakeup = true;
+          if( currInWord != Message_Type::alive ){
+            inBuffer.enqueue(currInWord);
+          }
+        }
         currInWord = 1;
         
       }else if(currWordBits + numBits > word_size + 2){
@@ -348,6 +359,3 @@ void startCommAllSides(){
 void stopComm(Side_Name side_name){
   getSide(side_name)->stop();
 }
-
-
-
