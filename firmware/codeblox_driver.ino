@@ -24,7 +24,6 @@ void initDriver(void (*newMessageCallback)(const Message&, enum Side_Name)){
 void goToSleep(){
   stopSendTimer();
   LowPower.powerDown(SLEEP_FOREVER, ADC_OFF, BOD_OFF);
-  resetClock();
 }
 
 void (*newSerialMessageCallback)(char *) = NULL;

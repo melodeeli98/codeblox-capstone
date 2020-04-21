@@ -119,6 +119,7 @@ public:
   void trigger(){
     if(neighborIsValid || asleep){
       if(asleep){
+        resetClock();
         startCommAllSides();
         startSendTimer();
         asleep = false;
@@ -273,7 +274,7 @@ ISR(TIMER1_COMPA_vect)
   rightSide.sendBit();
   bottomSide.sendBit();
   leftSide.sendBit();
-
+  delayMicroseconds(100UL);
   topSide.setData(LOW);
   rightSide.setData(LOW);
   bottomSide.setData(LOW);
