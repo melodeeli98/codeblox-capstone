@@ -8,9 +8,12 @@ enum Side_Name: byte
     left = 4
 };
 
+
+#include "message.h"
+
 String sideToString(Side_Name side);
 
-void initSides(void (*)(Message, enum Side_Name));
+void initSides(void (*callback)(const Message &, enum Side_Name));
 
 void updateSides();
 
@@ -28,5 +31,5 @@ byte peekWord(Side_Name);
 
 byte popWord(Side_Name);
 
-void sendMessage(Side_Name s, Message& m);
+void sendMessage(Side_Name s, const Message& m);
 

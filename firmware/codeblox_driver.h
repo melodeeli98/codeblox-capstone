@@ -2,6 +2,7 @@
 
 //IR comm stuff
 #include "side.h"
+#include "message.h"
 
 void initDriver(void (*)(Message, enum Side_Name));
 void updateDriver();

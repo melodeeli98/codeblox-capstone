@@ -1,8 +1,4 @@
 #include "codeblox_driver.h"
-#include "message_manager.h"
-#include <ArduinoSTL.h>
-#include <list>
-using namespace std;
 
 int numValidSides = 4;
 Side_Name parentSide;
@@ -54,7 +50,7 @@ byte flipEncoding(byte encoding, bool tileFlipped) {
   return newEncoding;
 }
 
-void handleNewMessage(Message& message, enum Side_Name side) {
+void handleNewMessage(const Message& message, enum Side_Name side) {
   LOG(String("NM ") + sideToString(side) + String(": ") + message.toString());
   switch (message.type) {
     case Message_Type::stop:

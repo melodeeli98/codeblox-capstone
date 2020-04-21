@@ -1,13 +1,11 @@
 #include "LowPower.h"
 #include "codeblox_driver.h"
-#include <ArduinoSTL.h>
 #include "side.h"
 #include <avr/io.h>
-using namespace std;
 
 void resetClock();
 
-void initDriver(void (*newMessageCallback)(Message, enum Side_Name)){
+void initDriver(void (*newMessageCallback)(const Message&, enum Side_Name)){
   // turn off reflective sensors asap
   DDRB |= 1 << PINB7;
   PORTB |= 1 << PINB7;

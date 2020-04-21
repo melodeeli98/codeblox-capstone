@@ -1,9 +1,7 @@
 #include <avr/interrupt.h>
 #include <avr/io.h>
-#include <ArduinoSTL.h>
 #include "codeblox_driver.h"
 #include "message.h"
-using namespace std;
 
 //IR inputs
 //topPin = 4; // External, INT0
@@ -20,8 +18,8 @@ using namespace std;
 volatile bool asleep;
 
 class RingBuffer{
-  const int buff_size = 64;
-  volatile byte buff[buf_size];
+  const static int buf_size = 64;
+  volatile byte buf[buf_size];
   volatile int start;
   volatile int end;
   volatile int currBit;
@@ -31,8 +29,8 @@ public:
     end = 0;
   }
   void enqueue(byte w){
-     buff[end] = w;
-     end = (end+1) % buff_size;
+     buf[end] = w;
+     end = (end+1) % buf_size;
   } 
   int size(){
     if(start > end){
@@ -42,28 +40,27 @@ public:
     }
   }
   byte peek(){
-    buff[start];
+    buf[start];
   }
   byte dequeue(){
-    byte w = buff[start];
-    start = (start+1) % buff_size;
+    byte w = buf[start];
+    start = (start+1) % buf_size;
     return w;
   }  
   void clear(){
     start = stop;
   }
-}
+};
 
 static void startSendTimer();
 
-void (*newMessageCallback)(Message, enum Side_Name);
+void (*newMessageCallback)(const Message &, enum Side_Name);
 
 class Side{
   enum Side_Name sideName;
   volatile int currOutBit;
   volatile byte currOutWord;
   volatile byte currInWord;
-  const word_size = 8;
   volatile int timeout;
   volatile bool receivedFirstBit;
   volatile unsigned long lastReceivedBit;
@@ -79,8 +76,8 @@ public:
   };
 
   void startSending(){
-    outBuff.clear();
-    inBuff.clear();
+    outBuffer.clear();
+    inBuffer.clear();
     currOutBit = word_size;
     currOutWord = Message_Type::wakeup;
     timeout = 0;
@@ -103,7 +100,7 @@ public:
         if(inBuffer.size() >= messageSize){
           byte words [messageSize];
           for(int i = 0; i < messageSize; i++){
-            words[i] = inBuffer.pop();
+            words[i] = inBuffer.dequeue();
           }
           Message receivedMessage (messageSize, words);
           newMessageCallback(receivedMessage, sideName);
@@ -142,13 +139,13 @@ public:
         currWordBits++;
       }
       //LOG("w+n= " + String(wordBits) + "+" + String(numBits));
-      if(wordBits + numBits == word_size + 2){
+      if(currWordBits + numBits == word_size + 2){
         currInWord <<= (numBits-1);
         currInWord &= ~(1<<word_size);
         inBuffer.enqueue(currInWord);
         currInWord = 1;
         
-      }else if(wordBits + numBits > word_size + 2){
+      }else if(currWordBits + numBits > word_size + 2){
         LOG("Message contains too many bits");
         stop();
         return;
@@ -172,7 +169,7 @@ public:
       currOutBit--;
       if(currOutBit < 0){
         if(outBuffer.size() > 0){
-          currOutWord = outBuffer.pop();
+          currOutWord = outBuffer.dequeue();
         }else{
           currOutWord = Message_Type::alive;
         }
@@ -275,8 +272,7 @@ ISR(TIMER1_COMPA_vect)
 }
 
 
-void initSides(void (*callback)(Message, enum Side_Name))
-{
+void initSides(void (*callback)(const Message &, enum Side_Name)){
   asleep = true;
 
   newMessageCallback = callback;
@@ -304,8 +300,9 @@ void initSides(void (*callback)(Message, enum Side_Name))
   TCCR1A = 0;
   //no prescaler
   TCCR1B &= ~(1<<CS12);
-  TCCR1B |= (1<<CS10);
-  const unsigned long pre_scaler = 1;
+  TCCR1B |= (1<<CS11);
+  TCCR1B &= ~(1<<CS10);
+  const unsigned long pre_scaler = 8;
   // Set CTC mode
   TCCR1B |= (1<<WGM12);
   TCCR1B &= ~(1<<WGM13);
@@ -334,7 +331,7 @@ void stopSendTimer(){
   asleep = true;
 }
 
-void sendMessage(Side_Name s, Message& m){
+void sendMessage(Side_Name s, const Message& m){
   Side *side = getSide(s);
   for(int i = 0; i < m.num_words; i++){
     side->outBuffer.enqueue(m.words[i]);

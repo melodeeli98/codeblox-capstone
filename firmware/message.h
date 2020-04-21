@@ -1,13 +1,11 @@
 #pragma once
-#include "codeblox_driver.h"
-#include <ArduinoSTL.h>
-#include <list>
 
-
-const int word_size = 10;
-const unsigned long clock_period = 10000UL; //uS
+const int word_size = 8;
+const unsigned long clock_period = 100000UL; //uS
 
 enum Message_Type : byte{ wakeup=0, alive, parent, tile, done, stop};
+
+#include "codeblox_driver.h"
 
 int numberOfDataWords(Message_Type m){
   switch(m){
@@ -20,12 +18,9 @@ int numberOfDataWords(Message_Type m){
   }
 }
 
+const int max_message_size = 4;
 
-const Message done_message (Message_Type::done);
-const Message stop_message (Message_Type::done);
-
-class Message {
-  const int max_message_size = 4;  
+class Message {  
 public:
   Message_Type type;
   byte words[max_message_size];
@@ -86,4 +81,8 @@ public:
     return s;
   }
 };
+
+
+const Message done_message (Message_Type::done);
+const Message stop_message (Message_Type::done);
 
