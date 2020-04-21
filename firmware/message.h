@@ -84,5 +84,4 @@ public:
 
 
 const Message done_message (Message_Type::done);
-const Message stop_message (Message_Type::done);
-
+const Message stop_message (Message_Type::stop);
