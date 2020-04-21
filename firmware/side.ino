@@ -65,7 +65,7 @@ class Side{
   volatile bool receivedFirstBit;
   volatile bool receivedWakeup;
   volatile unsigned long lastReceivedBit;
-  bool sentStop;
+  volatile bool sentStop;
 public:
   RingBuffer outBuffer;
   RingBuffer inBuffer;
@@ -81,6 +81,7 @@ public:
     inBuffer.clear();
     currOutBit = word_size;
     currOutWord = Message_Type::wakeup;
+    currInWord = 0;
     timeout = 0;
     receivedFirstBit = false;
     receivedWakeup = false;
@@ -118,6 +119,7 @@ public:
   void trigger(){
     if(neighborIsValid || asleep){
       if(asleep){
+        startCommAllSides()
         startSendTimer();
         asleep = false;
       }
@@ -148,7 +150,7 @@ public:
           stop();
         } else {
           receivedWakeup = true;
-          if( currInWord != Message_Type::alive ){
+          if( currInWord != Message_Type::alive && currInWord != Message_Type::wakeup){
             inBuffer.enqueue(currInWord);
           }
         }
@@ -355,3 +357,4 @@ void startCommAllSides(){
 void stopComm(Side_Name side_name){
   getSide(side_name)->stop();
 }
+

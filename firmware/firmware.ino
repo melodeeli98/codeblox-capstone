@@ -10,7 +10,8 @@ bool tileFlipped = false;
 void resetTile() {
   LOG("resetting");
   goToSleep();
-  startCommAllSides();
+  //startCommAllSides happens automatically on wakeup
+  
   numValidSides = 4;
   hasParent = false;
   tileFlipped = false;
