@@ -72,6 +72,7 @@ public:
         break;
       default:
         s = "unknown message: ";
+        s+= String(words[0], BIN);
         break;
     }
     for (int i = 1; i < num_words; i++){
