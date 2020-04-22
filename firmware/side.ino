@@ -119,7 +119,6 @@ public:
 
   //new data bit trigger
   void trigger(){
-    unsigned long timeReceived = timeMicros();
     if(neighborIsValid || asleep){
       if(asleep){
         asleep = false;
@@ -127,6 +126,7 @@ public:
         startCommAllSides();
         startSendTimer();
       }
+      unsigned long timeReceived = timeMicros();
       timeout = 0;
       int numBits = 1;
       if(!receivedFirstBit){
