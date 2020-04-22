@@ -11,7 +11,7 @@ EIGHT_T         = 8
 NINE_T          = 9
 ZERO_T          = 10
 
-IF_T            = 11
+IF_T            = 52
 ELSE_T          = 12
 WHILE_T         = 13
 
@@ -21,7 +21,7 @@ VAR2_T          = 16
 VAR3_T          = 17
 VAR4_T          = 18
 
-TRUE_T          = 19
+TRUE_T          = 44
 FALSE_T         = 20
 
 NEGATIVE_T      = 21
@@ -37,7 +37,7 @@ NOTEQUAL_T      = 27
 AND_T           = 28
 OR_T            = 29
 LESSTHAN_T      = 30
-GREATERTHAN_T   = 31
+GREATERTHAN_T   = 62
 LESSTHANEQ_T    = 32
 GREATERTHANEQ_T = 33
 
