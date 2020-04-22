@@ -99,12 +99,16 @@ public:
 
   void update(){
     if(neighborIsValid){
+      while(inBuffer.size() > 0){
+          Message_Type m = (Message_Type) inBuffer.peek();
+          if(m == Message_Type::wakeup || m == Message_Type::alive){
+            inBuffer.dequeue();
+          } else {
+            break;
+          }
+      }
       if(inBuffer.size() > 0){
         Message_Type m = (Message_Type) inBuffer.peek();
-        if(m==Message_Type::wakeup || m==Message_Type::alive){
-          inBuffer.dequeue();
-          return;
-        }
         int messageSize = numberOfDataWords(m) + 1;
         if(inBuffer.size() >= messageSize){
           byte words [messageSize];
