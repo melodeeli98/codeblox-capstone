@@ -1,7 +1,7 @@
 #pragma once
 
 const int word_size = 8;
-const unsigned long clock_period = 1000UL; //uS
+const unsigned long clock_period = 5000UL; //uS
 
 enum Message_Type : byte{ wakeup=0, alive=1, parent=2, tile=3, done=4, stop=5};
 
