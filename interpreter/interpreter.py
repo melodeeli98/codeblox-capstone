@@ -125,6 +125,8 @@ def eval(r, start, end):
             return (parseNumber(r,start,end), TYPE_NUM)
         elif mytype == VAR:
             index = getVarIndex(me)
+            if vars[index] == 0:
+                raise InterpreterError(ERROR_UNDEFINED, (r,start))
             return vars[index]
         elif mytype == NOP:
             raise InterpreterError(ERROR_SYNTAX, (r,start))
@@ -287,6 +289,9 @@ def runCode(r, indent):
                     #variable stuff
                     handleAssign(tile, curr, indent)
                     curr += 1
+                else: 
+                    #invalid start
+                    raise InterpreterError(ERROR_SYNTAX, (curr,indent))
 
 
 def callInterpreter(blocks, filename):
@@ -312,6 +317,8 @@ def callInterpreter(blocks, filename):
             f = open(filename, 'w')
             f.write("Overflow error\n")
             f.close()
+        elif e.code == ERROR_UNDEFINED:
+            outputFile.write("Undefined error\n")
 
         return (True, e.loc)
     else:
