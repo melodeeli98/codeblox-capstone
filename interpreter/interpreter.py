@@ -128,7 +128,7 @@ def eval(r, start, end):
             if vars[index] == 0:
                 raise InterpreterError(ERROR_UNDEFINED, (r,start))
             return vars[index]
-        elif mytype == NOP:
+        else:
             raise InterpreterError(ERROR_SYNTAX, (r,start))
 
     else:
