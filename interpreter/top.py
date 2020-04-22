@@ -18,11 +18,8 @@ from translate import play
 
 #blocks = [[14,26,1], [13,19,-1], [-1,41,14]]
 
-#blocks = play()
-#print(blocks)
-
-blocks = [[31]]
-
+blocks = play()
+print(blocks)
 
 (filename, isErr, errLoc) = interpret(blocks)
 draw(blocks, filename, isErr, errLoc)
