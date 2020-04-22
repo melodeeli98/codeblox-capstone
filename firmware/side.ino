@@ -101,6 +101,10 @@ public:
     if(neighborIsValid){
       if(inBuffer.size() > 0){
         Message_Type m = (Message_Type) inBuffer.peek();
+        if(m==Message_Type::wakeup || m==Message_Type::alive){
+          inBuffer.dequeue();
+          return;
+        }
         int messageSize = numberOfDataWords(m) + 1;
         if(inBuffer.size() >= messageSize){
           byte words [messageSize];
@@ -154,9 +158,7 @@ public:
           stop();
         } else {
           receivedWakeup = true;
-          if( currInWord != Message_Type::alive && currInWord != Message_Type::wakeup){
-            inBuffer.enqueue(currInWord);
-          }
+          inBuffer.enqueue(currInWord);
         }
         currInWord = 1;
         
