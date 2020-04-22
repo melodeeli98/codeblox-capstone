@@ -17,7 +17,7 @@ void handleNewMessage(const Message& message, enum Side_Name side) {
         char x = (char) message.words[1];
         char y = (char) message.words[2];
         byte encoding = message.words[3];
-        LOG("x: " + String(x) + " y: " + String(y) + " encoding: " + String(encoding));
+        Serial.println("x: " + String(x) + " y: " + String(y) + " encoding: " + String(encoding));
       }
       break;
     default:
