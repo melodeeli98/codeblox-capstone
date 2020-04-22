@@ -8,16 +8,17 @@ void handleNewMessage(const Message& message, enum Side_Name side) {
     case Message_Type::done:
       LOG("DONE!");
       stopComm(side);
+      Serial.println("done");
       break;
     case Message_Type::parent:
       stopComm(side);
       break;
     case Message_Type::tile:
       {
-        char x = (char) message.words[1];
-        char y = (char) message.words[2];
+        int x = (int) message.words[1];
+        int y = (int) message.words[2];
         byte encoding = message.words[3];
-        Serial.println("x: " + String(x) + " y: " + String(y) + " encoding: " + String(encoding));
+        Serial.println(String(x) + "," + String(y) + ":" + String(encoding));
       }
       break;
     default:
