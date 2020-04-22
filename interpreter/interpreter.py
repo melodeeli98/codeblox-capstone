@@ -311,7 +311,7 @@ def callInterpreter(blocks, filename):
         elif e.code == ERROR_SYNTAX:
             outputFile.write("Syntax error\n"),
         elif e.code == ERROR_INDENT:
-            outputFile.write("Indentation error\n")
+            outputFile.write("Expecting tile here\n")
         elif e.code == ERROR_OVERFLOW:
             outputFile.close()
             f = open(filename, 'w')
