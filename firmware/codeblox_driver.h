@@ -19,8 +19,8 @@ void goToSleep();
 
 void registerSerialMessageCallback(void (*callback)(char *));
 
-//#define LOG(...) serialLog(__VA_ARGS__)
-#define LOG(...) ((void)0)
+#define LOG(...) serialLog(__VA_ARGS__)
+//#define LOG(...) ((void)0)
 
 size_t serialLog(const __FlashStringHelper * );
 size_t serialLog(const String &s);

@@ -44,6 +44,7 @@ void setup() {
 
 void loop() {
   updateDriver();
+  /*
   static unsigned long t = timeMicros();
   if(timeMicros() - t > 20000000UL){
     t = timeMicros();
@@ -54,5 +55,5 @@ void loop() {
     startCommAllSides();
     Message parentMessage (Message_Type::parent, Side_Name::top);
     sendMessage(Side_Name::bottom, parentMessage);
-  }
+  }*/
 }
