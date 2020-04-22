@@ -15,14 +15,13 @@ from translate import play
 #blocks = [[14,26,1,-1,-1,-1,-1],[13,14,30,9,-1,-1,-1],[-1,11,14,42,2,26,10],[-1,-1,41,14,-1,-1,-1],[-1,14,26,14,22,1,-1]]
 
 #blocks = [[14,26,5,22,3,25,6],[41,14,-1,-1,-1,-1,-1]]
-#blocks = [[]]
 
 #blocks = [[14,26,1], [13,19,-1], [-1,41,14]]
 
-blocks = play()
-print(blocks)
+#blocks = play()
+#print(blocks)
 
-#blocks = [[31]]
+blocks = [[31]]
 
 
 (filename, isErr, errLoc) = interpret(blocks)
