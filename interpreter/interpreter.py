@@ -31,11 +31,13 @@ def getTileCode(r, c):
 
     return blocks[r][c]
 
-def parseBool(tile):
+def parseBool(tile, pos):
     if tile == TRUE_T:
         return True 
     elif tile == FALSE_T:
         return False
+    else:
+        raise InterpreterError(ERROR_SYNTAX, pos)
 
 def parseNumber(r,start,end):
     neg = False
@@ -44,14 +46,17 @@ def parseNumber(r,start,end):
 
     for i in range(start,end+1):
         curtile = getTileCode(r,i)
+        curgroup = getTileGroup(curtile)
         if isNOP(curtile):
             break
         if curtile == NEGATIVE_T:
             neg = True 
-        else:
+        elif curgroup == NUMBER:
             num = tileToNum(curtile)
             val = val*10 + num 
             hasANumber = True
+        else:
+            raise InterpreterError(ERROR_SYNTAX, (r,i))
 
     if neg:
         if hasANumber:
@@ -78,8 +83,10 @@ def calculateOperator(func, e1, e2, loc):
         if e2 == 0:
             raise InterpreterError(ERROR_DIVZERO, loc)
         return e1 % e2
+    else: 
+        raise InterpreterError(ERROR_SYNTAX, loc)
 
-def calculateComp(func,e1,e2):
+def calculateComp(func,e1,e2, loc):
     if func == EQUAL_T:
         return e1 == e2 
     elif func == NOTEQUAL_T:
@@ -92,12 +99,16 @@ def calculateComp(func,e1,e2):
         return e1 <= e2 
     elif func == GREATERTHANEQ_T:
         return e1 >= e2 
+    else:
+        raise InterpreterError(ERROR_SYNTAX, loc)
 
-def calculateLogic(func, e1, e2):
+def calculateLogic(func, e1, e2, loc):
     if func == AND_T:
         return e1 and e2 
     elif func == OR_T:
-        return e1 or e2 
+        return e1 or e2
+    else:
+        raise InterpreterError(ERROR_SYNTAX, loc)
 
 #return a tuple (value, type)
 def eval(r, start, end):
@@ -113,14 +124,13 @@ def eval(r, start, end):
             if functionImportance(tilecode) < curfunctionimportance:
                 functionpos = i
                 curfunctionimportance = functionImportance(tilecode)
-            
-    
+
     if functionpos == -1: #base case
         #check first tile and see if it's a bool or number and accordingly 
         me = getTileCode(r,start)
         mytype = getTileGroup(me)
         if mytype == BOOL:
-            return (parseBool(me), TYPE_BOOL)
+            return (parseBool(me, (r,start)), TYPE_BOOL)
         elif mytype == NUMBER or mytype == NUMOPS:
             return (parseNumber(r,start,end), TYPE_NUM)
         elif mytype == VAR:
@@ -128,7 +138,7 @@ def eval(r, start, end):
             if vars[index] == 0:
                 raise InterpreterError(ERROR_UNDEFINED, (r,start))
             return vars[index]
-        elif mytype == NOP:
+        else:
             raise InterpreterError(ERROR_SYNTAX, (r,start))
 
     else:
@@ -143,12 +153,12 @@ def eval(r, start, end):
         elif tilegroup == COMPARATOR:
             if e1type != TYPE_NUM or e2type != TYPE_NUM:
                 raise InterpreterError(ERROR_TYPE, (r,functionpos))
-            return (calculateComp(func,e1,e2), TYPE_BOOL)
+            return (calculateComp(func,e1,e2, (r,functionpos)), TYPE_BOOL)
         
         elif tilegroup == LOGIC:
             if e1type != TYPE_BOOL or e2type != TYPE_BOOL:
                 raise InterpreterError(ERROR_TYPE, (r,functionpos))
-            return (calculateLogic(func,e1,e2), TYPE_BOOL)
+            return (calculateLogic(func,e1,e2, (r,functionpos)), TYPE_BOOL)
 
 def evalExpression(r, c):
     #calculate the end of the expression
@@ -168,6 +178,11 @@ def handleIf(r, c):
     global curstate
     global isError, errorCode
     exitPos = findExitCondition(r+1,c)
+
+    #make sure there is at least one line of control between if and exit
+    if exitPos == r+1:
+        raise InterpreterError(ERROR_INDENTCOND, (exitPos,c-1))
+
     (isValid,typ) = evalExpression(r,c)
     if typ != TYPE_BOOL:
         raise InterpreterError(ERROR_TYPE, (r,c))
@@ -182,6 +197,11 @@ def handleIf(r, c):
 
 def handleElse(r, c):
     exitPos = findExitCondition(r+1,c)
+
+    #make sure there is at least one line of control between else and exit
+    if exitPos == r+1:
+        raise InterpreterError(ERROR_INDENTCOND, (exitPos,c-1))
+
     global curstate
     if curstate == STATE_IFNOTTAKEN:
         curstate = STATE_NONE
@@ -189,7 +209,6 @@ def handleElse(r, c):
         return exitPos
     
     elif curstate == STATE_NONE:
-        #going to be error here TODO
         raise InterpreterError(ERROR_SYNTAX, (r,c-1))
 
 def handleWhile(r, c):
@@ -197,6 +216,11 @@ def handleWhile(r, c):
 
     #find where the while loop ends
     exitPos = findExitCondition(r+1,c)
+
+    #make sure there is at least one line of control between while and exit
+    if exitPos == r+1:
+        raise InterpreterError(ERROR_INDENTCOND, (exitPos,c-1))
+
     (isValid,typ) = evalExpression(r,c)
     if typ != TYPE_BOOL:
         raise InterpreterError(ERROR_TYPE, (r,c))
@@ -218,6 +242,8 @@ def handleConditional(tile, r, c):
         return handleElse(r, c+1)
     elif tile == WHILE_T:
         return handleWhile(r, c+1)
+    else:
+        return InterpreterError(ERROR_SYNTAX, (r,c))
 
 
 def handleCommand(tile, r, c):
@@ -225,6 +251,8 @@ def handleCommand(tile, r, c):
         (val,typ) = evalExpression(r,c+1)
         outputFile.write(str(val))
         outputFile.write("\n")
+    else:
+        return InterpreterError(ERROR_SYNTAX, (r,c))
 
 
 def getVarIndex(tile):
@@ -239,7 +267,8 @@ def getVarIndex(tile):
     elif tile == VAR4_T:
         return 4
     #never should happen
-    return -1
+    else:
+        return InterpreterError(ERROR_SYNTAX, (r,c))
 
 def handleAssign(tile, r, c):
     #print("in assign", r, c)
@@ -249,8 +278,8 @@ def handleAssign(tile, r, c):
     if nextTile == EQUAL_T:
         (val,typ) = evalExpression(r,c+2)
         vars[index] = (val,typ)
-    
-
+    else:
+        raise InterpreterError(ERROR_SYNTAX, (r,c+1))
 
 # runs a block of code from (r,c) position
 def runCode(r, indent):
@@ -319,6 +348,8 @@ def callInterpreter(blocks, filename):
             f.close()
         elif e.code == ERROR_UNDEFINED:
             outputFile.write("Undefined error\n")
+        elif e.code == ERROR_INDENTCOND:
+            outputFile.write("Expected indented line in conditional block\n")
 
         return (True, e.loc)
     else:

@@ -143,4 +143,4 @@ def tileToString(tilecode):
 
         NOP_T           : "none"
     }
-    return switcher.get(tilecode, "none")
+    return switcher.get(tilecode, "")
