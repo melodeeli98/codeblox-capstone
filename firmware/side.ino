@@ -154,8 +154,6 @@ public:
         currInWord &= ~(1<<word_size);
         if(!receivedWakeup && currInWord != Message_Type::wakeup){
           stop();
-        }else if (receivedWakeup && currInWord == Message_Type::wakeup){
-          stop();
         } else {
           receivedWakeup = true;
           inBuffer.enqueue(currInWord);
@@ -279,7 +277,7 @@ ISR(TIMER1_COMPA_vect)
   rightSide.sendBit();
   bottomSide.sendBit();
   leftSide.sendBit();
-  delayMicroseconds(100UL);
+  delayMicroseconds(500UL);
   topSide.setData(LOW);
   rightSide.setData(LOW);
   bottomSide.setData(LOW);
