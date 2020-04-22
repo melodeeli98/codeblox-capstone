@@ -7,6 +7,7 @@ from errors import *
 from conditionalops import *
 from customtypes import *
 import traceback
+import sys
 
 blocks = [[]]
 rows = 0
@@ -14,7 +15,13 @@ cols = 0
 curstate = STATE_NONE
 
 vars = [0,0,0,0,0]
+outputFile = 0
 
+numIterations = 0
+
+def isNOP(tile):
+    group = getTileGroup(tile)
+    return group == NOP 
 
 def getTileCode(r, c):
     if r < 0 or r >= rows:
@@ -37,7 +44,7 @@ def parseNumber(r,start,end):
 
     for i in range(start,end+1):
         curtile = getTileCode(r,i)
-        if curtile == NOP_T:
+        if isNOP(curtile):
             break
         if curtile == NEGATIVE_T:
             neg = True 
@@ -97,11 +104,16 @@ def eval(r, start, end):
     global isError, errorCode
     #find where the function or operation is 
     functionpos = -1
-    for i in range(end,start-1,-1):
-        tilegroup = getTileGroup(getTileCode(r,i))
+    curfunctionimportance = sys.maxsize
+    for i in range(start,end):
+        tilecode = getTileCode(r,i)
+        tilegroup = getTileGroup(tilecode)
         if tilegroup == OPERATOR or tilegroup == COMPARATOR or tilegroup == LOGIC:
-            functionpos = i
-            break
+            #want lowest importance to split on
+            if functionImportance(tilecode) < curfunctionimportance:
+                functionpos = i
+                curfunctionimportance = functionImportance(tilecode)
+            
     
     if functionpos == -1: #base case
         #check first tile and see if it's a bool or number and accordingly 
@@ -113,6 +125,8 @@ def eval(r, start, end):
             return (parseNumber(r,start,end), TYPE_NUM)
         elif mytype == VAR:
             index = getVarIndex(me)
+            if vars[index] == 0:
+                raise InterpreterError(ERROR_UNDEFINED, (r,start))
             return vars[index]
         elif mytype == NOP:
             raise InterpreterError(ERROR_SYNTAX, (r,start))
@@ -139,14 +153,14 @@ def eval(r, start, end):
 def evalExpression(r, c):
     #calculate the end of the expression
     cend = c 
-    while getTileCode(r,cend+1) != NOP_T:
+    while not isNOP(getTileCode(r,cend+1)):
         cend += 1
     #make sure there is at least one thing to evaluate
     return eval(r,c,cend) #inclusive
 
 def findExitCondition(r,indent):
     for i in range(r,rows):
-        if getTileCode(i,indent-1) != NOP_T:
+        if not isNOP(getTileCode(i,indent-1)):
             return i 
     return rows
 
@@ -156,7 +170,6 @@ def handleIf(r, c):
     exitPos = findExitCondition(r+1,c)
     (isValid,typ) = evalExpression(r,c)
     if typ != TYPE_BOOL:
-        print(isValid, typ)
         raise InterpreterError(ERROR_TYPE, (r,c))
     
     if isValid:
@@ -177,9 +190,11 @@ def handleElse(r, c):
     
     elif curstate == STATE_NONE:
         #going to be error here TODO
-        raise InterpreterError(ERROR_SYNTAX, r,c-1)
+        raise InterpreterError(ERROR_SYNTAX, (r,c-1))
 
 def handleWhile(r, c):
+    global numIterations
+
     #find where the while loop ends
     exitPos = findExitCondition(r+1,c)
     (isValid,typ) = evalExpression(r,c)
@@ -187,6 +202,9 @@ def handleWhile(r, c):
         raise InterpreterError(ERROR_TYPE, (r,c))
 
     while isValid:
+        numIterations += 1
+        if numIterations > 50000:
+            raise InterpreterError(ERROR_OVERFLOW, (r,c-1))
         runCode(r+1,c)
         (isValid,typ) = evalExpression(r,c)
         if typ != TYPE_BOOL:
@@ -205,7 +223,8 @@ def handleConditional(tile, r, c):
 def handleCommand(tile, r, c):
     if tile == PRINT_T:
         (val,typ) = evalExpression(r,c+1)
-        print(val)
+        outputFile.write(str(val))
+        outputFile.write("\n")
 
 
 def getVarIndex(tile):
@@ -239,7 +258,7 @@ def runCode(r, indent):
     tile = getTileCode(r, indent)
     
     #if tile is nop, then error: too much indentation
-    if tile == NOP_T:
+    if isNOP(tile):
         raise InterpreterError(ERROR_INDENT, (r,indent))
 
     curr = r
@@ -249,7 +268,7 @@ def runCode(r, indent):
 
         #if the block left of that is not nop, then indentation back
         # want to return new position
-        if getTileCode(curr, indent-1) != NOP_T:
+        if not isNOP(getTileCode(curr, indent-1)):
             return 
         
         else:
@@ -270,36 +289,50 @@ def runCode(r, indent):
                     #variable stuff
                     handleAssign(tile, curr, indent)
                     curr += 1
+                else: 
+                    #invalid start
+                    raise InterpreterError(ERROR_SYNTAX, (curr,indent))
 
 
-# # x = -10 + 1; print x; print x + 25; print x/0
-#blocks = [[14,26,21,1,10,22,1],[41,14,-1,-1,-1,-1,-1], [41,14,22,2,5,-1,-1], [41,14,24,10,-1,-1,-1]] 
+def callInterpreter(blocks, filename):
+    global rows, cols, numIterations, outputFile
+    
+    rows = len(blocks)
+    cols = len(blocks[0])
+    numIterations = 0
 
-# incomplete statement, throws a syntax error
-#blocks = [[14,26,1,10,22],[41,14,-1,-1,-1]] # x = 10 + 
+    try:
+        runCode(0,0)
+    except InterpreterError as e:
+        if e.code == ERROR_TYPE:
+            outputFile.write("Type error\n")
+        elif e.code == ERROR_DIVZERO:
+            outputFile.write("Divide by zero error\n")
+        elif e.code == ERROR_SYNTAX:
+            outputFile.write("Syntax error\n"),
+        elif e.code == ERROR_INDENT:
+            outputFile.write("Expecting tile here\n")
+        elif e.code == ERROR_OVERFLOW:
+            outputFile.close()
+            f = open(filename, 'w')
+            f.write("Overflow error\n")
+            f.close()
+        elif e.code == ERROR_UNDEFINED:
+            outputFile.write("Undefined error\n")
 
-# tries to do 10+True, throws a type error
-#blocks = [[14,26,1,10,22,19],[41,14,-1,-1,-1,-1]] # x = 10 + True 
+        return (True, e.loc)
+    else:
+        outputFile.write("All good!\n")
+        return (False, (0,0))
 
-# prints even numbers from 1 to 10. x = 1; while(x < 10){if x % 2 == 0 then print x; x++}
-blocks = [[14,26,1,-1,-1,-1,-1],[13,14,30,9,-1,-1,-1],[-1,11,14,42,2,26,10],[-1,-1,41,14,-1,-1,-1],[-1,14,26,14,22,1,-1]]
 
+def interpret(b):
+    global blocks, outputFile
 
-rows = len(blocks)
-cols = len(blocks[0])
-#runCode(0,0)
-try:
-    runCode(0,0)
-except InterpreterError as e:
-    if e.code == ERROR_TYPE:
-        print("Type error at block "),
-    elif e.code == ERROR_DIVZERO:
-        print("Divide by zero error at block "),
-    elif e.code == ERROR_SYNTAX:
-        print("Syntax error at block "),
-    elif e.code == ERROR_INDENT:
-        print("Indentation error at block "),
-    print(e.loc)
-    #print(traceback.format_exc())
-else:
-    print("All good!")
+    blocks = b
+    filename = "interpreter_output.txt"
+    outputFile = open(filename, 'w')
+    (isErr, errLoc) = callInterpreter(blocks, filename)
+    outputFile.close()
+
+    return (filename, isErr, errLoc)
