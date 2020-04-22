@@ -20,5 +20,7 @@ from interpreter import interpret
 blocks = [[14,26,5,22,3,25,6],[41,14,-1,-1,-1,-1,-1]]
 #blocks = [[]]
 
+#blocks = [[14,26,1], [13,19,-1], [-1,41,14]]
+
 (filename, isErr, errLoc) = interpret(blocks)
 draw(blocks, filename, isErr, errLoc)

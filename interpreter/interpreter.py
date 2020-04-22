@@ -17,6 +17,8 @@ curstate = STATE_NONE
 vars = [0,0,0,0,0]
 outputFile = 0
 
+numIterations = 0
+
 def isNOP(tile):
     group = getTileGroup(tile)
     return group == NOP 
@@ -186,9 +188,11 @@ def handleElse(r, c):
     
     elif curstate == STATE_NONE:
         #going to be error here TODO
-        raise InterpreterError(ERROR_SYNTAX, r,c-1)
+        raise InterpreterError(ERROR_SYNTAX, (r,c-1))
 
 def handleWhile(r, c):
+    global numIterations
+
     #find where the while loop ends
     exitPos = findExitCondition(r+1,c)
     (isValid,typ) = evalExpression(r,c)
@@ -196,6 +200,9 @@ def handleWhile(r, c):
         raise InterpreterError(ERROR_TYPE, (r,c))
 
     while isValid:
+        numIterations += 1
+        if numIterations > 50000:
+            raise InterpreterError(ERROR_OVERFLOW, (r,c-1))
         runCode(r+1,c)
         (isValid,typ) = evalExpression(r,c)
         if typ != TYPE_BOOL:
@@ -282,25 +289,30 @@ def runCode(r, indent):
                     curr += 1
 
 
-def callInterpreter(blocks):
-    global rows, cols 
+def callInterpreter(blocks, filename):
+    global rows, cols, numIterations, outputFile
     
     rows = len(blocks)
     cols = len(blocks[0])
+    numIterations = 0
 
     try:
         runCode(0,0)
     except InterpreterError as e:
         if e.code == ERROR_TYPE:
-            outputFile.write("Type error at block "),
+            outputFile.write("Type error\n")
         elif e.code == ERROR_DIVZERO:
-            outputFile.write("Divide by zero error at block "),
+            outputFile.write("Divide by zero error\n")
         elif e.code == ERROR_SYNTAX:
-            outputFile.write("Syntax error at block "),
+            outputFile.write("Syntax error\n"),
         elif e.code == ERROR_INDENT:
-            outputFile.write("Indentation error at block "),
-        outputFile.write(str(e.loc))
-        outputFile.write("\n")
+            outputFile.write("Indentation error\n")
+        elif e.code == ERROR_OVERFLOW:
+            outputFile.close()
+            f = open(filename, 'w')
+            f.write("Overflow error\n")
+            f.close()
+
         return (True, e.loc)
     else:
         outputFile.write("All good!\n")
@@ -313,7 +325,7 @@ def interpret(b):
     blocks = b
     filename = "interpreter_output.txt"
     outputFile = open(filename, 'w')
-    (isErr, errLoc) = callInterpreter(blocks)
+    (isErr, errLoc) = callInterpreter(blocks, filename)
     outputFile.close()
 
     return (filename, isErr, errLoc)
