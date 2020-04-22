@@ -347,6 +347,7 @@ void stopSendTimer(){
 }
 
 void sendMessage(Side_Name s, const Message& m){
+  LOG(String("SM ") + sideToString(s) + String(": ") + m.toString());
   Side *side = getSide(s);
   for(int i = 0; i < m.num_words; i++){
     side->outBuffer.enqueue(m.words[i]);
