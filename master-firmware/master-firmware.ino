@@ -1,8 +1,8 @@
 #include "codeblox_driver.h"
 
-byte my_sensors;
+static volatile byte my_sensors;
 
-int stopped;
+static volatile int stopped;
 
 void translateCoordinates(char * newX, char * newY, char oldX, char oldY, Side_Name side) {
   *newX = oldX;
@@ -29,6 +29,9 @@ void handleNewMessage(const Message& message, enum Side_Name side) {
         Serial.println("done");
       }
       break;
+    case Message_Type::timeout:
+      Serial.println("timeout");
+      break;
     case Message_Type::done:
       LOG("DONE!");
       stopComm(side);
@@ -51,7 +54,8 @@ void handleNewMessage(const Message& message, enum Side_Name side) {
 
 void processSerialMessage(char *message)
 {
-  if (String(message) == "start") {
+  String m (message);
+  if ( m == "start") {
     readReflectiveSensorsLater(&my_sensors);
     stopped = 0;
     LOG("Starting");
@@ -60,6 +64,11 @@ void processSerialMessage(char *message)
     Message rightParentMessage (Message_Type::parent, Side_Name::left);
     sendMessage(Side_Name::bottom, bottomParentMessage);
     sendMessage(Side_Name::right, rightParentMessage);
+  } else if (m == "stop"){
+    stopComm(Side_Name::top);
+    stopComm(Side_Name::right);
+    stopComm(Side_Name::bottom);
+    stopComm(Side_Name::left);
   }
 }
 

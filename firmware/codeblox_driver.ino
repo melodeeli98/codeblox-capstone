@@ -16,14 +16,16 @@ void initDriver(void (*newMessageCallback)(const Message&, enum Side_Name)){
   analogReference(EXTERNAL);
 
   Serial.begin(9600);
-  delay(1);
+  delay(10);
   
   initSides(newMessageCallback);
 }
 
 void goToSleep(){
-  stopSendTimer();
+  putSidesToSleep();
+  //Serial.println("sleeping");
   LowPower.powerDown(SLEEP_FOREVER, ADC_OFF, BOD_OFF);
+  //Serial.println("awake");
 }
 
 void (*newSerialMessageCallback)(char *) = NULL;
@@ -52,19 +54,19 @@ int readReflectiveSensor(int sensor){
   }
 }
 
-const unsigned long sensorLoadTime = 1000UL;
-const int sensorThreshold = 250;
-byte *sensors = NULL;
-int * sensor0 = NULL;
-int * sensor1 = NULL;
-int * sensor2 = NULL;
-int * sensor3 = NULL;
-int * sensor4 = NULL;
-int * sensor5 = NULL;
-bool readSensors = false;
-bool readSensorsRaw = false;
-unsigned long readSensorsTime = 0;
-unsigned long readSensorsRawTime = 0;
+static const unsigned long sensorLoadTime = 1000UL;
+static const int sensorThreshold = 250;
+static volatile byte * sensors = NULL;
+static volatile int * sensor0 = NULL;
+static volatile int * sensor1 = NULL;
+static volatile int * sensor2 = NULL;
+static volatile int * sensor3 = NULL;
+static volatile int * sensor4 = NULL;
+static volatile int * sensor5 = NULL;
+static volatile bool readSensors = false;
+static volatile bool readSensorsRaw = false;
+static volatile unsigned long readSensorsTime = 0;
+static volatile unsigned long readSensorsRawTime = 0;
 
 
 void updateDriver(){
@@ -182,14 +184,14 @@ size_t serialLog(void){
 }
 
 const unsigned long maxTime = ~0UL;
-unsigned long startTime = 0UL;
+volatile unsigned long startTime = 0UL;
 
 void resetClock(){
   startTime = micros();
 }
 
 unsigned long timeMicros(){
-  unsigned long currTime = micros();
+  volatile unsigned long currTime = micros();
   if (startTime > currTime)
   { //aka overflow
     return (maxTime - startTime) + 1UL + currTime;

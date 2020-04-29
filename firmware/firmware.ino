@@ -1,10 +1,11 @@
 #include "codeblox_driver.h"
 
-int numValidSides = 4;
-Side_Name parentSide;
-bool hasParent = false;
-byte tileEncoding = 0;
-bool tileFlipped = false;
+static volatile int numValidSides = 4;
+static volatile int numAliveSides = 4;
+static volatile Side_Name parentSide;
+static volatile bool hasParent = false;
+static byte tileEncoding = 0;
+static volatile bool tileFlipped = false;
 
 // Resets tile state between compilations
 void resetTile() {
@@ -13,6 +14,7 @@ void resetTile() {
   //startCommAllSides happens automatically on wakeup
   
   numValidSides = 4;
+  numAliveSides = 4;
   hasParent = false;
   tileFlipped = false;
   readReflectiveSensorsLater(&tileEncoding);
@@ -52,7 +54,7 @@ byte flipEncoding(byte encoding, bool tileFlipped) {
 }
 
 void handleNewMessage(const Message& message, enum Side_Name side) {
-  LOG(String("NM ") + sideToString(side) + String(": ") + message.toString());
+  //Serial.println(String("NM ") + sideToString(side) + String(": ") + message.toString());
   switch (message.type) {
     case Message_Type::stop:
       numValidSides--;
@@ -66,7 +68,11 @@ void handleNewMessage(const Message& message, enum Side_Name side) {
       if (numValidSides == 1 && hasParent) {
         sendMessage(parentSide, done_message);
       }
-      if (numValidSides == 0) {
+      break;
+
+    case Message_Type::timeout:
+      numAliveSides--;
+      if (numAliveSides == 0) {
         resetTile();
       }
       break;

@@ -23,7 +23,7 @@ bool isValid(Side_Name side_name);
 
 //before going to sleep, you must call this
 //to disable the timer interrupt
-void stopSendTimer();
+void putSidesToSleep();
 
 int numAvailableWords(Side_Name);
 

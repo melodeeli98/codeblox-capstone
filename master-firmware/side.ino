@@ -15,7 +15,7 @@
 // B arduino pin 7
 // L arduino pin 6
 
-volatile bool asleep;
+static volatile bool asleep;
 
 class RingBuffer{
   const static int buf_size = 64;
@@ -68,6 +68,8 @@ class Side{
   volatile bool receivedWakeup;
   volatile unsigned long lastReceivedBit;
   volatile bool sentStop;
+  volatile bool didTimeout;
+  volatile bool sentTimeout;
 public:
   RingBuffer outBuffer;
   RingBuffer inBuffer;
@@ -76,6 +78,9 @@ public:
   Side(enum Side_Name n){
     sideName = n;
     neighborIsValid = false;
+    sentStop = true;
+    didTimeout = true;
+    sentTimeout = true;
   };
 
   void startSending(){
@@ -88,8 +93,10 @@ public:
     receivedFirstBit = false;
     receivedWakeup = false;
     sentStop = false;
+    sentTimeout = false;
 
     //must be last
+    didTimeout = false;
     neighborIsValid = true;
   }
 
@@ -97,20 +104,29 @@ public:
     neighborIsValid = false;//must happen first
   }
 
+  void setTimeout(){
+    neighborIsValid = false;
+    didTimeout = true;
+  }
+
   void update(){
     if(neighborIsValid){
+      bool usableMessage = false;
       while(inBuffer.size() > 0){
           Message_Type m = (Message_Type) inBuffer.peek();
           if(m == Message_Type::wakeup || m == Message_Type::alive){
             inBuffer.dequeue();
           } else {
+            usableMessage = true;
             break;
           }
       }
-      if(inBuffer.size() > 0){
+      if(usableMessage){
         Message_Type m = (Message_Type) inBuffer.peek();
         int messageSize = numberOfDataWords(m) + 1;
-        if(inBuffer.size() >= messageSize){
+        if(messageSize == 0){
+          stop();
+        }else if(inBuffer.size() >= messageSize){
           byte words [messageSize];
           for(int i = 0; i < messageSize; i++){
             words[i] = inBuffer.dequeue();
@@ -123,19 +139,20 @@ public:
       sentStop = true;
       newMessageCallback(stop_message, sideName);
     }
+    if(didTimeout && !sentTimeout){
+      sentTimeout = true;
+      newMessageCallback(timeout_message, sideName);
+    }
   }
 
   //new data bit trigger
   void trigger(){
-    if(neighborIsValid || asleep){
-      if(asleep){
-        asleep = false;
-        resetClock();
-        startCommAllSides();
-        startSendTimer();
-      }
-      unsigned long timeReceived = timeMicros();
+    if(!didTimeout){
       timeout = 0;
+    }
+    if(neighborIsValid){
+      
+      volatile unsigned long timeReceived = timeMicros();
       int numBits = 1;
       if(!receivedFirstBit){
         receivedFirstBit = true;
@@ -175,6 +192,12 @@ public:
   
   //time to send data bit
   void sendBit(){
+    if(!didTimeout){
+      timeout++;
+      if(timeout > word_size + 5){
+        setTimeout();
+      }
+    }
     if(neighborIsValid){
       if(currOutBit == word_size){
         setData(HIGH);
@@ -191,10 +214,6 @@ public:
           currOutWord = Message_Type::alive;
         }
         currOutBit = word_size;        
-      }
-      timeout++;
-      if(timeout > word_size + 3){
-        stop();
       }
     }
   }
@@ -229,10 +248,10 @@ String sideToString(Side_Name side){
 }
 
 
-Side topSide (Side_Name::top);
-Side rightSide (Side_Name::right);
-Side bottomSide (Side_Name::bottom);
-Side leftSide (Side_Name::left);
+static Side topSide (Side_Name::top);
+static Side rightSide (Side_Name::right);
+static Side bottomSide (Side_Name::bottom);
+static Side leftSide (Side_Name::left);
 
 class Side * getSide(enum Side_Name side){
   switch(side){
@@ -258,9 +277,19 @@ void leftTrigger()
   leftSide.trigger();
 }
 
+void wakeupIfAsleep(){
+  if(asleep){
+    asleep = false;
+    resetClock();
+    startCommAllSides();
+    startSendTimer();
+  }
+}
+
 //bottom Trigger
 ISR(PCINT0_vect)
 {
+  wakeupIfAsleep();
   if(!(PINB & (1 << PINB6))){
     bottomSide.trigger();
   }
@@ -269,6 +298,7 @@ ISR(PCINT0_vect)
 //right Trigger
 ISR(PCINT2_vect)
 {
+  wakeupIfAsleep();
   if(!(PIND & (1 << PIND4))){
     rightSide.trigger();
   }
@@ -281,7 +311,7 @@ ISR(TIMER1_COMPA_vect)
   rightSide.sendBit();
   bottomSide.sendBit();
   leftSide.sendBit();
-  delayMicroseconds(50UL);
+  delayMicroseconds(100UL);
   topSide.setData(LOW);
   rightSide.setData(LOW);
   bottomSide.setData(LOW);
@@ -345,11 +375,12 @@ static void startSendTimer(){
 
 void stopSendTimer(){
   TIMSK1 = 0;
+  delay(1000);
   asleep = true;
 }
 
 void sendMessage(Side_Name s, const Message& m){
-  //LOG(String("SM ") + sideToString(s) + String(": ") + m.toString());
+  //Serial.println(String("SM ") + sideToString(s) + String(": ") + m.toString());
   Side *side = getSide(s);
   for(int i = 0; i < m.num_words; i++){
     side->outBuffer.enqueue(m.words[i]);

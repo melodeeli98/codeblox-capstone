@@ -3,7 +3,7 @@
 const int word_size = 8;
 const unsigned long clock_period = 100000UL; //uS
 
-enum Message_Type : byte{ wakeup=0, alive=1, parent=2, tile=3, done=4, stop=5};
+enum Message_Type : byte{ wakeup=0, alive=1, parent=2, tile=3, done=4, stop=5, timeout=6};
 
 #include "codeblox_driver.h"
 
@@ -13,8 +13,10 @@ int numberOfDataWords(Message_Type m){
       return 1;
     case tile:
       return 3;
-    default:
+    case done:
       return 0;
+    default:
+      return -1;
   }
 }
 
@@ -70,6 +72,9 @@ public:
       case stop:
         s = "stop: ";
         break;
+      case timeout:
+        s = "timeout: ";
+        break;
       case wakeup:
         s = "wakeup: ";
         break;
@@ -90,3 +95,4 @@ public:
 
 const Message done_message (Message_Type::done);
 const Message stop_message (Message_Type::stop);
+const Message timeout_message (Message_Type::timeout);
