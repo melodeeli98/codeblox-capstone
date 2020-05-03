@@ -2,10 +2,10 @@
 
 enum Side_Name: byte
 {
-    top = 1,
-    right = 2,
-    bottom = 3,
-    left = 4
+    top = 0,
+    right = 1,
+    bottom = 2,
+    left = 3
 };
 
 
@@ -24,4 +24,3 @@ void putSidesToSleep();
 void sendMessage(Side_Name s, const Message& m);
 void stopSending(Side_Name s);
 void beginTimeout();
-

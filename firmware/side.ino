@@ -40,7 +40,7 @@ class Side{
   
 
   void startSending(){
-    currOutBit = word_size;
+    currOutBit = word_size + sideName*2;
     currOutWord = Message_Type::wakeup;
 
     //must be last
@@ -174,14 +174,17 @@ public:
   
   //time to send data bit
   void sendBit(){
-    if((receivedFirstBit || receiving) && !didTimeout){
+    if(receiving && !didTimeout){
       timeout++;
-      if(timeout > 4*word_size + 5){
+      if(timeout > 5*word_size + 5){
         setTimeout();
       }
     }
     if(sending){
-      if(currOutBit == word_size){
+      if(currOutBit > word_size){
+        setData(LOW);
+        LOG('L');
+      }else if(currOutBit == word_size){
         setData(HIGH);
         LOG('H');
       }else{
@@ -409,4 +412,3 @@ void beginTimeout(){
   bottomSide.beginTimeout();
   leftSide.beginTimeout();
 }
-
