@@ -1,9 +1,6 @@
 from gui import draw
 from interpreter import interpret
-
-# TODO: call translate from here, translate will be the one deserializing the input from
-# the master tile. 
-# further instructions in translate.py
+from translate import play
 
 # # x = -10 + 1; print x; print x + 25; print x/0
 #blocks = [[14,26,21,1,10,22,1],[41,14,-1,-1,-1,-1,-1], [41,14,22,2,5,-1,-1], [41,14,24,10,-1,-1,-1]] 
@@ -18,9 +15,11 @@ from interpreter import interpret
 #blocks = [[14,26,1,-1,-1,-1,-1],[13,14,30,9,-1,-1,-1],[-1,11,14,42,2,26,10],[-1,-1,41,14,-1,-1,-1],[-1,14,26,14,22,1,-1]]
 
 #blocks = [[14,26,5,22,3,25,6],[41,14,-1,-1,-1,-1,-1]]
-blocks = [[41,14]]
+blocks = [[13,19,-1], [-1,41,5], [11,19,-1], [-1,41,6]]
 
-#blocks = [[14,26,1], [13,19,-1], [-1,41,14]]
+
+blocks = play()
+print(blocks)
 
 (filename, isErr, errLoc) = interpret(blocks)
 draw(blocks, filename, isErr, errLoc)
