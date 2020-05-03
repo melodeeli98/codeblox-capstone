@@ -1,12 +1,14 @@
 from itertools import chain
 import serial
 
+MELODEE_SERIAL_PORT = 'COM7'
+
 # output format: n x m matrix
 # every CodeBlox tile has a positive number associated with tileops
 # every other tile is -1 (NOP).
 
 def play():
-    ser = serial.Serial('COM8') # open serial port
+    ser = serial.Serial(MELODEE_SERIAL_PORT) # open serial port
     ser.write(b'start\n')
     stream = []
     line = ser.readline()[:-2] # read a '\n' terminated line
