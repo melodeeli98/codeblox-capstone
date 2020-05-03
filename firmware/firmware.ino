@@ -1,20 +1,23 @@
 #include "codeblox_driver.h"
 
 static volatile int numValidSides = 4;
-static volatile int numAliveSides = 4;
 static volatile Side_Name parentSide;
 static volatile bool hasParent = false;
 static byte tileEncoding = 0;
 static volatile bool tileFlipped = false;
 
+static volatile byte aliveSides = 0;
+
+
+
 // Resets tile state between compilations
 void resetTile() {
   LOG("resetting");
+  aliveSides = 0;
+  
   goToSleep();
-  //startCommAllSides happens automatically on wakeup
   
   numValidSides = 4;
-  numAliveSides = 4;
   hasParent = false;
   tileFlipped = false;
   readReflectiveSensorsLater(&tileEncoding);
@@ -54,35 +57,38 @@ byte flipEncoding(byte encoding, bool tileFlipped) {
 }
 
 void handleNewMessage(const Message& message, enum Side_Name side) {
-  //Serial.println(String("NM ") + sideToString(side) + String(": ") + message.toString());
+  LOG(String("NM ") + sideToString(side) + String(": ") + message.toString());
   switch (message.type) {
     case Message_Type::stop:
       numValidSides--;
       if (hasParent && parentSide == side) {
         hasParent = false;
-        stopComm(Side_Name::top);
-        stopComm(Side_Name::right);
-        stopComm(Side_Name::bottom);
-        stopComm(Side_Name::left);
+        stopSending(Side_Name::top);
+        stopSending(Side_Name::right);
+        stopSending(Side_Name::bottom);
+        stopSending(Side_Name::left);
       }
       if (numValidSides == 1 && hasParent) {
         sendMessage(parentSide, done_message);
       }
+      stopSending(side);
       break;
-
+    case Message_Type::first_message:
+      aliveSides |= 1 << side;
+      break;
     case Message_Type::timeout:
-      numAliveSides--;
-      if (numAliveSides == 0) {
+      aliveSides &= ~(1<<side);
+      if (aliveSides == 0) {
         resetTile();
       }
       break;
     case Message_Type::done:
-      stopComm(side);
+      stopSending(side);
       break;
     case Message_Type::parent:
       if (hasParent) {
         LOG("already have parent");
-        stopComm(side);
+        stopSending(side);
       }
       else {
         hasParent = true;
@@ -97,27 +103,24 @@ void handleNewMessage(const Message& message, enum Side_Name side) {
         }
         Message selfTileMessage (Message_Type::tile, 0, 0, flipEncoding(tileEncoding, tileFlipped));
         sendMessage(parentSide, selfTileMessage);
-        if(numValidSides > 1){
-          // Send parent requests to all other sides
-          if (parentSide != Side_Name::top) {
-            Message parent_message (Message_Type::parent, tileFlipped ? Side_Name::top : Side_Name::bottom);
-            sendMessage(Side_Name::top, parent_message);
-          }
-          if (parentSide != Side_Name::right) {
-            Message parent_message (Message_Type::parent, tileFlipped ? Side_Name::right : Side_Name::left);
-            sendMessage(Side_Name::right, parent_message);
-          }
-          if (parentSide != Side_Name::bottom) {
-            Message parent_message (Message_Type::parent, tileFlipped ? Side_Name::bottom : Side_Name::top);
-            sendMessage(Side_Name::bottom, parent_message);
-          }
-          if (parentSide != Side_Name::left) {
-            Message parent_message (Message_Type::parent, tileFlipped ? Side_Name::left : Side_Name::right);
-            sendMessage(Side_Name::left, parent_message);
-          }
-        } else {
-          sendMessage(parentSide, done_message);
+        // Send parent requests to all other sides
+        if (parentSide != Side_Name::top) {
+          Message parent_message (Message_Type::parent, tileFlipped ? Side_Name::top : Side_Name::bottom);
+          sendMessage(Side_Name::top, parent_message);
         }
+        if (parentSide != Side_Name::right) {
+          Message parent_message (Message_Type::parent, tileFlipped ? Side_Name::right : Side_Name::left);
+          sendMessage(Side_Name::right, parent_message);
+        }
+        if (parentSide != Side_Name::bottom) {
+          Message parent_message (Message_Type::parent, tileFlipped ? Side_Name::bottom : Side_Name::top);
+          sendMessage(Side_Name::bottom, parent_message);
+        }
+        if (parentSide != Side_Name::left) {
+          Message parent_message (Message_Type::parent, tileFlipped ? Side_Name::left : Side_Name::right);
+          sendMessage(Side_Name::left, parent_message);
+        }
+        beginTimeout();
       }
       break;
     case Message_Type::tile:
@@ -134,7 +137,7 @@ void handleNewMessage(const Message& message, enum Side_Name side) {
       }
       break;
     default:
-      stopComm(side);
+      stopSending(side);
       break;
   }
 }

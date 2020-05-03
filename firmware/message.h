@@ -1,9 +1,9 @@
 #pragma once
 
 const int word_size = 8;
-const unsigned long clock_period = 100000UL; //uS
+const unsigned long clock_period = 10000UL; //uS
 
-enum Message_Type : byte{ wakeup=0, alive=1, parent=2, tile=3, done=4, stop=5, timeout=6};
+enum Message_Type : byte{ wakeup=0, alive=1, parent=2, tile=3, done=4, stop=5, timeout=6, first_message=7};
 
 #include "codeblox_driver.h"
 
@@ -14,6 +14,8 @@ int numberOfWords(Message_Type m){
     case tile:
       return 4;
     case done:
+      return 1;
+    case first_message:
       return 1;
     default:
       return -1;
@@ -77,6 +79,9 @@ public:
         break;
       case wakeup:
         s = "wakeup: ";
+        break;
+      case first_message:
+        s = "first_message: ";
         break;
       default:
         s = "unknown message: ";

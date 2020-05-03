@@ -22,7 +22,7 @@ void initDriver(void (*newMessageCallback)(const Message&, enum Side_Name)){
 }
 
 void goToSleep(){
-  stopSendTimer();
+  putSidesToSleep();
   //Serial.println("sleeping");
   LowPower.powerDown(SLEEP_FOREVER, ADC_OFF, BOD_OFF);
   //Serial.println("awake");

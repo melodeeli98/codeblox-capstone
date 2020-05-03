@@ -1,6 +1,6 @@
 #include "codeblox_driver.h"
 
-static volatile byte my_sensors;
+static byte my_sensors;
 
 static volatile int stopped;
 
@@ -28,16 +28,20 @@ void handleNewMessage(const Message& message, enum Side_Name side) {
         Serial.println("0,0:" + String(my_sensors));
         Serial.println("done");
       }
+      stopSending(side);
+      break;
+    case Message_Type::first_message:
+      LOG("first message");
       break;
     case Message_Type::timeout:
-      Serial.println("timeout");
+      LOG("timeout");
       break;
     case Message_Type::done:
       LOG("DONE!");
-      stopComm(side);
+      stopSending(side);
       break;
     case Message_Type::parent:
-      stopComm(side);
+      stopSending(side);
       break;
     case Message_Type::tile:
       {
@@ -47,7 +51,7 @@ void handleNewMessage(const Message& message, enum Side_Name side) {
       }
       break;
     default:
-      stopComm(side);
+      stopSending(side);
       break;
   }
 }
@@ -59,16 +63,18 @@ void processSerialMessage(char *message)
     readReflectiveSensorsLater(&my_sensors);
     stopped = 0;
     LOG("Starting");
-    startCommAllSides();
+
+    resetSides();
     Message bottomParentMessage (Message_Type::parent, Side_Name::top);
     Message rightParentMessage (Message_Type::parent, Side_Name::left);
     sendMessage(Side_Name::bottom, bottomParentMessage);
     sendMessage(Side_Name::right, rightParentMessage);
+    beginTimeout();
   } else if (m == "stop"){
-    stopComm(Side_Name::top);
-    stopComm(Side_Name::right);
-    stopComm(Side_Name::bottom);
-    stopComm(Side_Name::left);
+    stopSending(Side_Name::top);
+    stopSending(Side_Name::right);
+    stopSending(Side_Name::bottom);
+    stopSending(Side_Name::left);
   }
 }
 
@@ -84,12 +90,16 @@ void loop() {
   static unsigned long t = timeMicros();
   if(timeMicros() - t > 20000000UL){
     t = timeMicros();
-    stopComm(Side_Name::top);
-    stopComm(Side_Name::right);
-    stopComm(Side_Name::bottom);
-    stopComm(Side_Name::left);
-    startCommAllSides();
-    Message parentMessage (Message_Type::parent, Side_Name::top);
-    sendMessage(Side_Name::bottom, parentMessage);
-  }*/
+    stopSending(Side_Name::top);
+    stopSending(Side_Name::right);
+    stopSending(Side_Name::bottom);
+    stopSending(Side_Name::left);
+    resetSides();
+    Message bottomParentMessage (Message_Type::parent, Side_Name::top);
+    sendMessage(Side_Name::bottom, bottomParentMessage);
+    Message rightParentMessage (Message_Type::parent, Side_Name::left);
+    sendMessage(Side_Name::right, rightParentMessage);
+    beginTimeout();
+  }
+  */
 }

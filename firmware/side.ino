@@ -30,28 +30,14 @@ class Side{
   void stopReceiving(){
     receiving = false;//must happen first
   }
-  void stopSending(){
-    sending = false;//must happen first
-  }
 
   void setTimeout(){
-    receiving = false;
+    receivedFirstBit = true;
     didTimeout = true;
-    stopSending();
     stopReceiving();
   }
 
-  void setData(int value){
-    if (sideName == Side_Name::top){
-      digitalWrite(5, value);
-    } else if (sideName == Side_Name::right){
-      digitalWrite(8, value);
-    } else if (sideName == Side_Name::bottom){
-      digitalWrite(7, value);
-    } else if (sideName == Side_Name::left){
-      digitalWrite(6, value);
-    }
-  }
+  
 
   void startSending(){
     currOutBit = word_size;
@@ -97,7 +83,7 @@ public:
       }
       if(usableMessage){
         Message_Type m = (Message_Type) inBuffer.peek();
-        int messageSize = numberOfDataWords(m);
+        int messageSize = numberOfWords(m);
         if(messageSize < 0){ //i.e. unusable message
           stopReceiving();
         }else if(inBuffer.size() >= messageSize){
@@ -119,6 +105,10 @@ public:
     }
   }
 
+  void stopSending(){
+    sending = false;//must happen first
+  }
+
   void sendMessage(const Message& m){
     if(!sending){
       startSending();
@@ -130,6 +120,7 @@ public:
 
   //new data bit trigger
   void trigger(){
+    LOG('t');
     bool isFirstBit = false;
     if(!receivedFirstBit){
       receivedFirstBit = true;
@@ -140,6 +131,7 @@ public:
       timeout = 0;
     }
     if(receiving){
+      LOG("rt");
       int numBits = 1;
       if(!isFirstBit){
         numBits = (interruptReceivedTime - lastReceivedBit + clock_period/2) / clock_period;
@@ -148,6 +140,7 @@ public:
       
       if(numBits <= 0){
         //do nothing.  no need to fail here
+        LOG("0b");
         return;
       }
       int currWordBits = 0;
@@ -157,15 +150,20 @@ public:
       if(currWordBits + numBits == word_size + 2){
         currInWord <<= (numBits-1);
         currInWord &= ~(1<<word_size);
+        LOG(currInWord);
         if(!receivedWakeup && currInWord != Message_Type::wakeup){
           stopReceiving();
         } else {
+          if(!receivedWakeup){
+            inBuffer.enqueue(Message_Type::first_message);
+          }
           receivedWakeup = true;
           inBuffer.enqueue(currInWord);
         }
         currInWord = 1;
         
       }else if(currWordBits + numBits > word_size + 2){
+        LOG("2mb");
         stopReceiving();
         return;
       }else{
@@ -176,18 +174,22 @@ public:
   
   //time to send data bit
   void sendBit(){
-    if(receiving && !didTimeout){
+    if((receivedFirstBit || receiving) && !didTimeout){
       timeout++;
-      if(timeout > word_size + 5){
+      if(timeout > 4*word_size + 5){
         setTimeout();
       }
     }
     if(sending){
       if(currOutBit == word_size){
         setData(HIGH);
+        LOG('H');
       }else{
         if(currOutWord & (1 << currOutBit)){
           setData(HIGH);
+          LOG('H');
+        }else{
+          LOG('L');
         }
       }
       currOutBit--;
@@ -202,11 +204,26 @@ public:
     }
   }
 
+  void setData(int value){
+    if (sideName == Side_Name::top){
+      digitalWrite(5, value);
+    } else if (sideName == Side_Name::right){
+      digitalWrite(8, value);
+    } else if (sideName == Side_Name::bottom){
+      digitalWrite(7, value);
+    } else if (sideName == Side_Name::left){
+      digitalWrite(6, value);
+    }
+  }
+
+  void beginTimeout(){
+    receiving = true;
+  }
   
 };
 
 
-static String sideToString(Side_Name side){
+String sideToString(Side_Name side){
   switch (side){
   case Side_Name::top:
     return String("top");
@@ -241,17 +258,20 @@ static class Side * getSide(enum Side_Name side){
   return NULL;
 }
 
-
+void resetSides(){
+    topSide.reset();
+    rightSide.reset();
+    bottomSide.reset();
+    leftSide.reset();
+}
 
 inline void wakeupIfAsleep(){
   if(asleep){
     asleep = false;
     resetClock();
-    topSide.reset();
-    rightSide.reset();
-    bottomSide.reset();
-    leftSide.reset();
+    interruptReceivedTime = timeMicros();
     //start send timer
+    LOG('W');
     TCNT1 = 0;
     TIMSK1 = (1<<OCIE1A);
   }
@@ -354,12 +374,10 @@ void initSides(void (*callback)(const Message &, enum Side_Name)){
 
 void putSidesToSleep(){
   //stop send timer
+  LOG("sleep");
   TIMSK1 = 0;
   delay(1000);
-  topSide.reset();
-  rightSide.reset();
-  bottomSide.reset();
-  leftSide.reset();
+  resetSides();
   asleep = true;
 }
 
@@ -373,9 +391,22 @@ void updateSides(){
 
 
 void sendMessage(Side_Name s, const Message& m){
-  //Serial.println(String("SM ") + sideToString(s) + String(": ") + m.toString());
+  LOG(String("SM ") + sideToString(s) + String(": ") + m.toString());
   Side *side = getSide(s);
   side->sendMessage(m);
 }
 
+void stopSending(Side_Name s){
+  LOG("sS");
+  Side *side = getSide(s);
+  side->stopSending();
+}
+
+void beginTimeout(){
+  LOG("bT");
+  topSide.beginTimeout();
+  rightSide.beginTimeout();
+  bottomSide.beginTimeout();
+  leftSide.beginTimeout();
+}
 
